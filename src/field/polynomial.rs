@@ -95,7 +95,7 @@ impl<'a> Polynomial<'a> {
     )
   }
 
-  pub fn interpolate_domain<'m> (domain: &[FieldElement<'m>], values: &[FieldElement<'m>]) -> Polynomial<'m> {
+  pub fn interpolate_domain <'m>(domain: &[FieldElement<'m>], values: &[FieldElement<'m>]) -> Polynomial<'m> {
     // todo() need an example of calculation
     assert_eq!(domain.len(), values.len(), "number of elements in domain does not match number of values");
     assert!(domain.len() > 0, "Cannot interpolate between zero points");
@@ -104,7 +104,6 @@ impl<'a> Polynomial<'a> {
     let x = Polynomial::new(vec![field.zero(), field.one()]);
     let mut acc = Polynomial::new(vec![]);
 
-    println!("domain_length: {}", domain.len());
     for (i, el_i) in domain.iter().enumerate() {
       let mut prod = Polynomial::new(vec![*values.get(i).unwrap()]);
 
@@ -119,13 +118,12 @@ impl<'a> Polynomial<'a> {
       }
 
       acc = acc + prod;
-      println!("i: {:2}", i);
     }
 
     acc
   }
 
-  pub fn zerofier_domain<'m> (domain: Vec<FieldElement<'m>>) -> Polynomial<'m> {
+  pub fn zerofier_domain <'m>(domain: Vec<FieldElement<'m>>) -> Polynomial<'m> {
     // todo() need an example of calculation
     let field = domain.first().unwrap().field;
     let x = Polynomial::new(vec![field.zero(), field.one()]);
@@ -137,7 +135,7 @@ impl<'a> Polynomial<'a> {
       })
   }
 
-  pub fn test_colinearity<'m> (points: Vec<(FieldElement<'m>, FieldElement<'m>)>) -> bool {
+  pub fn test_colinearity <'m>(points: Vec<(FieldElement<'m>, FieldElement<'m>)>) -> bool {
     // todo() need an example of calculation
     let (domain, values) = points
       .into_iter()
@@ -554,6 +552,86 @@ mod tests {
 
   #[test]
   fn interpolate () {
-    panic!("should implement this test first")
+    let field = Field::new(FIELD_PRIME);
+
+    let poly = Polynomial::interpolate_domain(
+      &(1..4)
+        .map(|i| FieldElement {
+          field: &field,
+          value: i,
+        })
+        .collect::<Vec<_>>(),
+      &vec![
+        FieldElement {
+          field: &field,
+          value: 1,
+        },
+        FieldElement {
+          field: &field,
+          value: 4,
+        },
+        FieldElement {
+          field: &field,
+          value: 9,
+        },
+      ]
+    );
+    assert_eq!(poly, Polynomial::new(vec![
+      FieldElement {
+        field: &field,
+        value: 0,
+      },
+      FieldElement {
+        field: &field,
+        value: 0,
+      },
+      FieldElement {
+        field: &field,
+        value: 1,
+      },
+    ]));
+
+    let domain = (1..7)
+      .map(|i| FieldElement {
+        field: &field,
+        value: i,
+      })
+      .collect::<Vec<_>>();
+    let values = vec![
+      FieldElement {
+        field: &field,
+        value: 5,
+      },
+      FieldElement {
+        field: &field,
+        value: 2,
+      },
+      FieldElement {
+        field: &field,
+        value: 2,
+      },
+      FieldElement {
+        field: &field,
+        value: 1,
+      },
+      FieldElement {
+        field: &field,
+        value: 5,
+      },
+      FieldElement {
+        field: &field,
+        value: 0,
+      },
+    ];
+    let poly = Polynomial::interpolate_domain(
+      &domain,
+      &values,
+    );
+    values
+      .iter()
+      .enumerate()
+      .for_each(|(i, v)| {
+        assert_eq!(&poly.evaluate(domain.get(i).unwrap()), v)
+      })
   }
 }
