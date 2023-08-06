@@ -118,6 +118,10 @@ impl<'a> Polynomial<'a> {
       }
 
       acc = acc + prod;
+
+      if i % 10 == 0 {
+        println!("interpolate {}/{}", i, domain.len());
+      }
     }
 
     acc
@@ -153,7 +157,7 @@ impl<'a> Polynomial<'a> {
     }
   }
 
-  pub(crate) fn divide (numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Option<(Polynomial<'a>, Polynomial<'a>)> {
+  pub(super) fn divide (numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Option<(Polynomial<'a>, Polynomial<'a>)> {
     let denom_degree = denominator.degree();
     if denom_degree.is_none() {
       return None;
@@ -632,6 +636,11 @@ mod tests {
       .enumerate()
       .for_each(|(i, v)| {
         assert_eq!(&poly.evaluate(domain.get(i).unwrap()), v)
-      })
+      });
+    assert_ne!(poly.evaluate(&FieldElement {
+      field: &field,
+      value: 363,
+    }), field.zero());
+    assert_eq!(poly.degree(), Some(domain.len() - 1));
   }
 }

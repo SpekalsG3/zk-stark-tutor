@@ -9,10 +9,11 @@ mod field {
     pub mod polynomial;
 }
 mod utils {
-    pub mod gcd;
-    pub mod xgcd;
     pub mod bit_iter;
     pub mod bytes;
+    pub mod gcd;
+    pub mod u512;
+    pub mod xgcd;
 }
 pub mod fri;
 pub mod m_polynomial;

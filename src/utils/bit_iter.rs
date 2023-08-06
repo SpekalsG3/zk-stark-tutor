@@ -10,37 +10,29 @@ impl<T> BitIter<T> {
   }
 }
 
-impl Into<BitIter<u128>> for u128 {
-  fn into (self) -> BitIter<u128> {
-    if self != 0 {
-      // for i in (0..u128::BITS).rev() {
-      //   if (self >> i) & 1 == 1 {
-      //     return BitIter(Some(i), self);
-      //   }
-      // }
-      let pos = (0..u128::BITS)
-        .rposition(|i| (self >> i) & 1 == 1);
-      return BitIter(pos, self);
-    }
-
-    BitIter(None, 0)
+impl From<u128> for BitIter<u128> {
+  fn from (value: u128) -> Self {
+    // for i in (0..u128::BITS).rev() {
+    //   if (value >> i) & 1 == 1 {
+    //     return BitIter(Some(i), value);
+    //   }
+    // }
+    let pos = (0..u128::BITS)
+      .rposition(|i| (value >> i) & 1 == 1);
+    return BitIter(pos, value);
   }
 }
 
-impl Into<BitIter<usize>> for usize {
-  fn into (self) -> BitIter<usize> {
-    if self != 0 {
-      // for i in (0..usize::BITS).rev() {
-      //   if (self >> i) & 1 == 1 {
-      //     return BitIter(Some(i), self);
-      //   }
-      // }
-      let pos = (0..usize::BITS)
-        .rposition(|i| (self >> i) & 1 == 1);
-      return BitIter(pos, self);
-    }
-
-    BitIter(None, 0)
+impl From<usize> for BitIter<usize> {
+  fn from (value: usize) -> Self {
+    // for i in (0..usize::BITS).rev() {
+    //   if (value >> i) & 1 == 1 {
+    //     return BitIter(Some(i), value);
+    //   }
+    // }
+    let pos = (0..usize::BITS)
+      .rposition(|i| (value >> i) & 1 == 1);
+    return BitIter(pos, value);
   }
 }
 

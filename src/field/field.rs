@@ -3,6 +3,7 @@ use serde::Serialize;
 use crate::field::field_element::FieldElement;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
+use crate::utils::u512::U512;
 
 // 270497897142230380135924736767050121217
 pub const FIELD_PRIME: u128 = 1 + 407 * (1 << 119);
@@ -23,7 +24,7 @@ fn degree (n: u128) -> usize {
 
 impl Field {
   pub fn new (order: u128) -> Field {
-    assert_eq!(order, FIELD_PRIME, "Only 1+407*2^119 currently implemented");
+    // assert_eq!(order, FIELD_PRIME, "Only 1+407*2^119 currently implemented");
     Field {
       order: order,
     }
@@ -76,24 +77,11 @@ impl<'a> Field {
   }
 
   pub fn sample (&'a self, bytes: &Bytes) -> FieldElement<'a> {
-    // todo: test, need an example of calculation
-    let mut iter: BitIter<u128> = self.order.into();
-    let bit = iter.bit_index().unwrap(); // `None` only if zero, asserted above
-    let bytes_num = bit / 8 + 1;
-
-    let bytes = bytes.bytes();
-    let len = bytes.len();
-
-    let start_i = if bytes_num > len {
-      0
-    } else {
-      len-bytes_num
-    };
-    let res = bytes[start_i..len]
+    let res = bytes
       .iter()
-      .fold(0, |acc, b| {
-        let res = (acc << 8) ^ (*b as u128);
-        res
+      .enumerate()
+      .fold(U512::new(), |acc, (i, b)| {
+        (acc << 8) ^ (*b as u128)
       });
 
     FieldElement {
@@ -204,5 +192,29 @@ mod tests {
 
     assert_eq!(z ^ (1 << n_log), field.one(), "omega not nth root of unity");
     assert_ne!(z ^ (1 << (n_log - 1)), field.one(), "omega not primitive");
+  }
+
+  #[test]
+  fn sample () {
+    let field = Field::new(FIELD_PRIME);
+
+    let bytes: Bytes = "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c"
+      .into();
+    assert_eq!(field.sample(&bytes), FieldElement {
+      field: &field,
+      value: 42271748005837835913754035451780029064,
+    });
+
+    let bytes = Bytes::from("6c9c4992");
+    assert_eq!(field.sample(&bytes), FieldElement {
+      field: &field,
+      value: 1822181778,
+    });
+
+    let bytes = Bytes::from("ac4cd3be");
+    assert_eq!(field.sample(&bytes), FieldElement {
+      field: &field,
+      value: 2890716094,
+    });
   }
 }
