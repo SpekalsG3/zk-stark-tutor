@@ -1,6 +1,7 @@
 use std::cmp::max;
 use std::ops::{Add, BitXor, Div, Mul, Neg, Rem, Sub};
 use crate::field::field_element::FieldElement;
+use crate::utils::bit_iter::BitIter;
 
 #[derive(Debug, Clone)]
 pub struct Polynomial<'a> {
@@ -344,11 +345,11 @@ impl<'a> Rem for Polynomial<'a> {
   }
 }
 
+// todo tutorial uses `BitXor` for power, replaces later
 impl<'a> BitXor<u128> for Polynomial<'a> {
   type Output = Self;
 
   fn bitxor (self, exponent: u128) -> Self::Output {
-    // todo test, need an example of calculation
     if self.is_zero() {
       return Polynomial::zero();
     }
@@ -362,7 +363,8 @@ impl<'a> BitXor<u128> for Polynomial<'a> {
       return acc;
     }
 
-    for i in (0..128).rev() {
+    let iter: BitIter<u128> = exponent.into();
+    for i in (0..iter.count()).rev() {
       acc = acc.clone().mul(acc);
       if (1 << i) & exponent != 0 {
         acc = acc.mul(self.clone());
@@ -654,5 +656,40 @@ mod tests {
       value: 363,
     }), field.zero());
     assert_eq!(poly.degree(), Some(domain.len() - 1));
+  }
+
+  #[test]
+  fn pow () {
+    let field = Field::new(FIELD_PRIME);
+
+    let poly = Polynomial {
+      coefficients: vec![
+        FieldElement {
+          field: &field,
+          value: 2,
+        },
+        FieldElement {
+          field: &field,
+          value: 5,
+        },
+      ],
+    };
+
+    assert_eq!(poly ^ 2, Polynomial {
+      coefficients: vec![
+        FieldElement {
+          field: &field,
+          value: 4,
+        },
+        FieldElement {
+          field: &field,
+          value: 20,
+        },
+        FieldElement {
+          field: &field,
+          value: 25,
+        },
+      ]
+    })
   }
 }

@@ -12,6 +12,7 @@ pub struct MPolynomial<'a> {
   dictionary: MPolynomialKey<'a>,
 }
 
+// todo it's all untested, idk how
 impl<'a> MPolynomial<'a> {
   pub fn new (dict: MPolynomialKey<'a>) -> Self {
     // Multivariate polynomials are represented as dictionaries with exponent vectors
@@ -138,7 +139,6 @@ impl<'a> Neg for MPolynomial<'a> {
   }
 }
 
-// todo it's all untested, idk how
 impl<'a> Add for MPolynomial<'a> {
   type Output = Self;
   fn add (self, rhs: Self) -> Self::Output {

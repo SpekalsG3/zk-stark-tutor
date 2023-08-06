@@ -3,9 +3,10 @@ use std::cmp::Ordering;
 use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
 use serde::Serialize;
 use crate::field::field::Field;
+use crate::utils::bit_iter::BitIter;
 use crate::utils::xgcd::u_xgcd;
 
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, PartialOrd)]
 pub struct FieldElement<'a> {
   pub field: &'a Field,
   pub value: u128,
@@ -102,33 +103,23 @@ impl<'a> Neg for FieldElement<'a> {
   }
 }
 
-impl<'a> PartialEq for FieldElement<'a> {
-  fn eq (&self, other: &Self) -> bool {
-    self.value == other.value
-  }
-
-  fn ne (&self, other: &Self) -> bool {
-    self.value != other.value
-  }
-}
-
 impl<'a> ToString for FieldElement<'a> {
   fn to_string (&self) -> String {
     self.value.to_string()
   }
 }
 
+// todo tutorial uses `BitXor` for power, replaces later
 impl<'a> BitXor<u128> for FieldElement<'a> {
   type Output = Self;
 
   fn bitxor (self, exponent: u128) -> Self::Output {
-    // todo: test, need an example of calculation
-
     let mut acc = self.field.one();
-    
-    for i in (0..128).rev() {
+
+    let iter: BitIter<u128> = exponent.into();
+    for i in (0..iter.count()).rev() {
       acc = acc * acc;
-      if (1 << i) & exponent != 0 {
+      if ((1 << i) & exponent) != 0 {
         acc = acc * self;
       }
     }
@@ -244,32 +235,48 @@ mod tests {
       field: &field,
       value: 8,
     };
-    let inverse = el.inverse();
-    assert_eq!(el * inverse, field.one());
+    assert_eq!(el * el.inverse(), field.one());
 
     let el = FieldElement {
       field: &field,
       value: 270497897142230380135924736767050121215,
     };
-    let inverse = el.inverse();
-    assert_eq!(el * inverse, field.one());
+    assert_eq!(el * el.inverse(), field.one());
   }
 
-  // #[test]
-  // fn test_bitxor () {
+  #[test]
+  fn pow () {
+    let field = Field::new(FIELD_PRIME);
+
+    let el = FieldElement {
+      field: &field,
+      value: 15,
+    };
+    assert_eq!(el ^ 4, FieldElement {
+      field: &field,
+      value: 50625,
+    });
+
+    let el = FieldElement {
+      field: &field,
+      value: 270497897142230380135,
+    };
+    assert_eq!(el ^ 8, FieldElement {
+      field: &field,
+      value: 79016866124691016201920330826259043252,
+    });
+  }
+
+  // fn bitxor () {
   //   let field = Field::new(FIELD_PRIME);
-  //   let el_1 = FieldElement {
+  // 
+  //   let el = FieldElement {
   //     field: &field,
-  //     value: 24,
+  //     value: 0b110011010, // 410
   //   };
-  //   let el_2 = FieldElement {
+  //   assert_eq!(el ^ 0b101101, FieldElement { // 45
   //     field: &field,
-  //     value: 12,
-  //   };
-  //   let res = FieldElement {
-  //     field: &field,
-  //     value: 20,
-  //   }; 
-  //   assert_eq!(el_1 ^ el_2, res);
+  //     value: 0b110110111, // 439
+  //   });
   // }
 }
