@@ -27,7 +27,7 @@ impl Shl<u32> for U512 {
   fn shl (mut self, rhs: u32) -> Self::Output {
     let mut overflows = [0_u128; 4];
 
-    let full_overflow = rhs > 128;
+    let full_overflow = rhs >= 128;
     let shift = rhs % 128;
     let overflow_target = rhs as usize / 128;
     for i in (0..4).rev() {
@@ -44,18 +44,18 @@ impl Shl<u32> for U512 {
         }
       }
 
-      if overflow_target <= i {
-        let target_i = i - overflow_target;
-
-        if overflows[target_i] == 0 {
-          overflows[target_i] = match bit_i.checked_shl(shift) {
-            Some(u) => u,
-            None => 0,
-          };
-        }
-      }
-
       if full_overflow {
+        if overflow_target <= i {
+          let target_i = i - overflow_target;
+
+          if overflows[target_i] == 0 {
+            overflows[target_i] = match bit_i.checked_shl(shift) {
+              Some(u) => u,
+              None => 0,
+            };
+          }
+        }
+
         *bit_i = overflows[i];
       } else {
         *bit_i = overflows[i] + match bit_i.checked_shl(shift) {
@@ -112,9 +112,6 @@ mod tests {
     assert_eq!(var.clone() << 2, U512 {
       bits: [0, 0, 3, u128::MAX - 3],
     });
-    assert_eq!(var.clone() << u128::BITS, U512 {
-      bits: [0, 0, u128::MAX, 0],
-    });
 
     let var = U512 {
       bits: [0b1, 0b0, u128::MAX, 0b1011],
@@ -134,6 +131,9 @@ mod tests {
   #[test]
   fn shl_more_128 () {
     let var: U512 = u128::MAX.into();
+    assert_eq!(var.clone() << u128::BITS, U512 {
+      bits: [0, 0, u128::MAX, 0],
+    });
     assert_eq!(var.clone() << u128::BITS + 1, U512 {
       bits: [0, 1, u128::MAX - 1, 0],
     });
