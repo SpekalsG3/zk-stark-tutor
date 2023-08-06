@@ -8,7 +8,7 @@ use crate::utils::u512::U512;
 // 270497897142230380135924736767050121217
 pub const FIELD_PRIME: u128 = 1 + 407 * (1 << 119);
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, PartialOrd)]
 pub struct Field {
   pub order: u128,
 }

@@ -9,6 +9,14 @@ pub struct Polynomial<'a> {
 
 impl<'a> Polynomial<'a> {
   pub fn new (coeffs: Vec<FieldElement<'a>>) -> Self {
+    if coeffs.len() > 2 {
+      let first = coeffs.first().unwrap();
+      coeffs
+        .iter()
+        .skip(1)
+        .for_each(|c| assert_eq!(first.field, c.field, "coefficients must be in the same field"))
+    }
+
     Polynomial {
       coefficients: coeffs,
     }
@@ -51,7 +59,13 @@ impl<'a> Polynomial<'a> {
   }
 
   pub fn evaluate (&self, point: &FieldElement<'a>) -> FieldElement<'a> {
-    // todo check if coefficients are from the same field
+    if self.coefficients.len() > 0 {
+      assert_eq!(
+        self.coefficients.first().unwrap().field,
+        point.field,
+        "cannot evaluate point in a different field",
+      );
+    }
 
     let (value, _) = self
       .coefficients
@@ -78,14 +92,13 @@ impl<'a> Polynomial<'a> {
   }
 
   pub fn scale (self, factor: u128) -> Polynomial<'a> {
-    // todo() need an example of calculation
+    // todo need an example of calculation
     Polynomial::new(
       self
         .coefficients
         .iter()
         .enumerate()
         .map(|(i, el)| {
-          // todo, i guess, has to be checked
           FieldElement {
             field: el.field,
             value: el.field.mul_mod(factor ^ i as u128, el.value),
@@ -96,7 +109,6 @@ impl<'a> Polynomial<'a> {
   }
 
   pub fn interpolate_domain <'m>(domain: &[FieldElement<'m>], values: &[FieldElement<'m>]) -> Polynomial<'m> {
-    // todo() need an example of calculation
     assert_eq!(domain.len(), values.len(), "number of elements in domain does not match number of values");
     assert!(domain.len() > 0, "Cannot interpolate between zero points");
 
@@ -128,7 +140,7 @@ impl<'a> Polynomial<'a> {
   }
 
   pub fn zerofier_domain <'m>(domain: Vec<FieldElement<'m>>) -> Polynomial<'m> {
-    // todo() need an example of calculation
+    // todo need an example of calculation
     let field = domain.first().unwrap().field;
     let x = Polynomial::new(vec![field.zero(), field.one()]);
 
@@ -140,7 +152,7 @@ impl<'a> Polynomial<'a> {
   }
 
   pub fn test_colinearity <'m>(points: Vec<(FieldElement<'m>, FieldElement<'m>)>) -> bool {
-    // todo() need an example of calculation
+    // todo need an example of calculation
     let (domain, values) = points
       .into_iter()
       .fold((vec![], vec![]), |mut acc, p| {
@@ -336,7 +348,7 @@ impl<'a> BitXor<u128> for Polynomial<'a> {
   type Output = Self;
 
   fn bitxor (self, exponent: u128) -> Self::Output {
-    // todo: test, need an example of calculation
+    // todo test, need an example of calculation
     if self.is_zero() {
       return Polynomial::zero();
     }

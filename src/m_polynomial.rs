@@ -114,7 +114,7 @@ impl<'a> MPolynomial<'a> {
       let mut prod = Polynomial::new(vec![v]);
 
       for (i, k) in k.iter().enumerate() {
-        prod = prod * (point.get(i).unwrap().clone().bitxor(*k));
+        prod = prod * (point.get(i).unwrap().clone() ^ *k);
       }
 
       acc = acc + prod;
@@ -138,7 +138,7 @@ impl<'a> Neg for MPolynomial<'a> {
   }
 }
 
-// TODO: it's all untested, idk how
+// todo it's all untested, idk how
 impl<'a> Add for MPolynomial<'a> {
   type Output = Self;
   fn add (self, rhs: Self) -> Self::Output {
