@@ -3,7 +3,7 @@ use std::ops::{Add, BitXor, Div, Mul, Neg, Rem, Sub};
 use crate::field::field_element::FieldElement;
 use crate::utils::bit_iter::BitIter;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Polynomial<'a> {
   pub coefficients: Vec<FieldElement<'a>>,
 }
@@ -55,7 +55,7 @@ impl<'a> Polynomial<'a> {
   pub fn leading_coefficient (&self) -> Option<&FieldElement<'a>> {
     match self.degree() {
       Some(i) => self.coefficients.get(i),
-      None => None,
+      None => self.coefficients.last(),
     }
   }
 
@@ -233,30 +233,6 @@ impl<'a> Neg for Polynomial<'a> {
   }
 }
 
-impl<'a> PartialEq for Polynomial<'a> {
-  fn eq (&self, other: &Self) -> bool {
-    let degree = self.degree();
-    if degree != other.degree() {
-      return false;
-    }
-    if degree.is_none() {
-      return true;
-    }
-
-    self
-      .coefficients
-      .iter()
-      .enumerate()
-      .all(|(i, el)| {
-        other.coefficients.get(i).unwrap() == el
-      })
-  }
-
-  fn ne (&self, other: &Self) -> bool {
-    !self.eq(other)
-  }
-}
-
 impl<'a> Add for Polynomial<'a> {
   type Output = Self;
   fn add (self, rhs: Self) -> Self::Output {
@@ -426,7 +402,6 @@ mod tests {
         },
       ],
     };
-
     let poly_b = Polynomial {
       coefficients: vec![
         FieldElement {
@@ -436,12 +411,10 @@ mod tests {
       ],
     };
 
-    let poly_c = poly_a.add(poly_b);
-
-    assert_eq!(poly_c.coefficients, vec![
+    assert_eq!(poly_a.sub(poly_b).coefficients, vec![
       FieldElement {
         field: &field,
-        value: 7,
+        value: 3,
       },
       FieldElement {
         field: &field,

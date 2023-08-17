@@ -1,7 +1,7 @@
 use std::ops::{BitAnd, Shr};
 use std::usize;
 
-#[derive(Debug)]
+#[derive(Debug, PartialOrd, PartialEq)]
 pub struct BitIter<T>(Option<usize>, T);
 
 impl<T> BitIter<T> {
@@ -62,16 +62,6 @@ impl<T> Iterator for BitIter<T>
     Some(bit.eq(&1_u8.into()))
   }
 }
-
-impl<T> PartialEq for BitIter<T>
-  where
-    T: PartialEq
-{
-  fn eq (&self, other: &Self) -> bool {
-    (self.1 == other.1) && (self.0 == other.0)
-  }
-}
-
 
 #[cfg(test)]
 mod tests {

@@ -67,7 +67,7 @@ mod tests {
   }
 
   #[test]
-  fn test_xgcd_signed () {
+  fn test_u_xgcd () {
     assert_eq!(u_xgcd(10, 5), (0, 1, 5));
     assert_eq!(u_xgcd(240, 46), (-9, 47, 2));
     assert_eq!(u_xgcd(3, BIG_PRIME), (90165965714076793378641578922350040406, -1, 1));

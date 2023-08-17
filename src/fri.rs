@@ -61,7 +61,6 @@ impl<'a> FRI<'a> {
 
   pub fn eval_domain (&self) -> Vec<FieldElement<'a>> {
     (0..self.domain_length)
-      .into_iter()
       .map(|i| {
         self.offset * (self.omega.clone() ^ i as u128)
       })
@@ -108,8 +107,7 @@ impl<'a> FRI<'a> {
     let mut counter = 0;
 
     while indices.len() < number {
-      let mut bytes = seed.clone();
-      bytes.extend(Bytes::new(vec![0; counter]));
+      let mut bytes = seed.clone() + Bytes::new(vec![0; counter]);
 
       let index = self.sample_index(blake2b512(bytes), size);
       let reduced_index = index % reduced_size;
@@ -296,6 +294,8 @@ impl<'a> FRI<'a> {
       return Err("last codeword is not well formed".to_string());
     }
 
+    let degree = (last_codeword.len() / self.expansion_factor) - 1;
+
     // check if it is low degree
     let mut last_omega = omega;
     let mut last_offset = offset;
@@ -304,25 +304,23 @@ impl<'a> FRI<'a> {
       last_offset = last_offset ^ 2;
     }
 
-    if last_omega.inverse() != last_omega ^ (last_codeword.len() - 1) as u128 {
+    if last_omega.inverse() != (last_omega ^ (last_codeword.len() as u128 - 1)) {
       return Err("omega does not have the right order".to_string());
     }
 
-    let last_domain = (0..last_codeword.len())
-      .into_iter()
-      .map(|i| last_offset * last_omega ^ i as u128)
+    let last_domain = (0..last_codeword.len() as u128)
+      .map(|i| last_offset * (last_omega ^ i))
       .collect::<Vec<_>>();
     let poly = Polynomial::interpolate_domain(&last_domain, &last_codeword);
 
     if poly.evaluate_domain(&last_domain) != last_codeword {
       return Err("re-evaluated codeword does not match original".to_string());
     }
-    let degree = (last_codeword.len() / self.expansion_factor) - 1;
 
     if let Some(poly_degree) = poly.degree() {
       if poly_degree > degree {
         return Err(format!(
-          "last codeword does not correspond to polynomial of low enough degree (is {} but should be {})",
+          "last codeword does not correspond to polynomial of low enough degree (it is {} but should be {})",
           poly_degree,
           degree,
         ));
@@ -469,7 +467,6 @@ mod tests {
 
     assert_eq!(1 << codeword_log_length, codeword_initial_length, "log calculated incorrectly");
 
-    // todo, cast to u128 seems like a hack 
     let omega = field.primitive_nth_root(codeword_initial_length as u128);
     let generator = field.generator();
 
@@ -496,9 +493,13 @@ mod tests {
     let codeword = polynomial.evaluate_domain(&domain);
 
     let mut proof_stream = ProofStream::new();
+
+    println!("proving...");
     fri.prove(codeword, &mut proof_stream);
+    println!("done");
 
     let mut points = vec![];
+    println!("verifying...");
     assert_eq!(fri.verify(&mut proof_stream, &mut points), Ok(()), "proof should be valid");
   }
 }

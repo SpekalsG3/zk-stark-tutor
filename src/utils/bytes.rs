@@ -1,12 +1,13 @@
 use std::ops::Add;
 use serde::{Serialize, Serializer};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Bytes {
   bytes: Vec<u8>
 }
 
 impl Serialize for Bytes {
+  // todo tests
   fn serialize<S> (&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
     self.to_hex().serialize(serializer)
   }
@@ -36,10 +37,6 @@ impl Bytes {
     &self.bytes
   }
 
-  pub fn extend (&mut self, b: Bytes) {
-    self.bytes.extend(b.bytes)
-  }
-
   pub fn iter (&self) -> Iter<'_> {
     Iter {
       i: 0,
@@ -64,12 +61,6 @@ impl From<&[u8]> for Bytes {
     Bytes {
       bytes: value.to_vec(),
     }
-  }
-}
-
-impl PartialEq for Bytes {
-  fn eq (&self, other: &Self) -> bool {
-    self.bytes == other.bytes
   }
 }
 
@@ -111,5 +102,31 @@ mod tests {
       bytes: vec![0x49,0x6e,0x20,0x74],
     };
     assert_eq!(bytes, "496e2074".into());
+  }
+
+  #[test]
+  fn add () {
+    let bytes_a = Bytes {
+      bytes: vec![0x49,0x6e],
+    };
+    let bytes_b = Bytes {
+      bytes: vec![0x20,0x74],
+    };
+    assert_eq!(bytes_a + bytes_b, Bytes {
+      bytes: vec![0x49,0x6e,0x20,0x74],
+    });
+  }
+
+  #[test]
+  fn iter () {
+    let bytes = Bytes {
+      bytes: vec![0x49,0x6e,0x20,0x74],
+    };
+    let mut iter = bytes.iter();
+    assert_eq!(iter.next(), Some(&0x49));
+    assert_eq!(iter.next(), Some(&0x6e));
+    assert_eq!(iter.next(), Some(&0x20));
+    assert_eq!(iter.next(), Some(&0x74));
+    assert_eq!(iter.next(), None);
   }
 }

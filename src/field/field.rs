@@ -217,4 +217,23 @@ mod tests {
       value: 2890716094,
     });
   }
+
+  #[test]
+  fn neg () {
+    let field = Field::new(100);
+    assert_eq!(
+      field.add_mod(
+        20,
+        field.neg_mod(20),
+      ),
+      0,
+    );
+    assert_eq!(
+      field.add_mod(
+        20,
+        field.neg_mod(19),
+      ),
+      1,
+    );
+  }
 }

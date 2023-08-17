@@ -245,6 +245,102 @@ mod tests {
   }
 
   #[test]
+  fn add () {
+    let field = Field::new(100);
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 20,
+      } + FieldElement {
+        field: &field,
+        value: 20,
+      },
+      FieldElement {
+        field: &field,
+        value: 40,
+      },
+    );
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 20,
+      } + (FieldElement {
+        field: &field,
+        value: 19,
+      }).neg(),
+      field.one(),
+    );
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 80,
+      } + FieldElement {
+        field: &field,
+        value: 21,
+      },
+      field.one(),
+    );
+  }
+
+  #[test]
+  fn sub () {
+    let field = Field::new(100);
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 20,
+      } - FieldElement {
+        field: &field,
+        value: 20,
+      },
+      field.zero(),
+    );
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 20,
+      } - FieldElement {
+        field: &field,
+        value: 19,
+      },
+      field.one(),
+    );
+    assert_eq!(
+      FieldElement {
+        field: &field,
+        value: 20,
+      } - FieldElement {
+        field: &field,
+        value: 21,
+      },
+      field.one().neg(),
+    );
+  }
+
+  #[test]
+  fn neg () {
+    let field = Field::new(100);
+    assert_eq!(FieldElement {
+        field: &field,
+        value: 1,
+      }.neg(),
+       FieldElement {
+         field: &field,
+         value: 99,
+       },
+    );
+    assert_eq!(FieldElement { 
+        field: &field, 
+        value: 20, 
+      }.neg(),
+       FieldElement {
+         field: &field,
+         value: 80,
+       },
+    );
+  }
+
+  #[test]
   fn pow () {
     let field = Field::new(FIELD_PRIME);
 

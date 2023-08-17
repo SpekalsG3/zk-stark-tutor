@@ -42,8 +42,8 @@ impl<'a> MerkleRoot {
     assert!(index < len, "cannot open invalid index");
 
     if len == 2 {
-      let str = leafs.get(1 - index).unwrap().clone();
-      vec![str]
+      let commit = leafs.get(1 - index).unwrap().clone();
+      vec![commit]
     } else if index < (len / 2) {
       let mut a = MerkleRoot::open_(index, &leafs[0..len/2]);
       let b = MerkleRoot::commit_(&leafs[len/2..len]);
