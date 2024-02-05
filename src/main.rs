@@ -22,5 +22,5 @@ pub mod proof_stream;
 
 fn main() {
     let p = 1 + 407 * (1 << 119);
-    let field = Field::new(p);
+    let _ = Field::new(p);
 }

@@ -79,8 +79,7 @@ impl<'a> Field {
   pub fn sample (&'a self, bytes: &Bytes) -> FieldElement<'a> {
     let res = bytes
       .iter()
-      .enumerate()
-      .fold(U512::new(), |acc, (i, b)| {
+      .fold(U512::new(), |acc, b| {
         (acc << 8) ^ (*b as u128)
       });
 
@@ -179,13 +178,13 @@ mod tests {
 
     // straightforward
     let powered = (0..n-1)
-      .fold(z.value, |acc, i| {
+      .fold(z.value, |acc, _| {
         field.mul_mod(acc, z.value)
       });
     assert_eq!(powered, 1, "omega is not {}th root of unity", n);
     
     let powered = (0..n-2)
-      .fold(z.value, |acc, el| {
+      .fold(z.value, |acc, _| {
         field.mul_mod(acc, z.value)
       });
     assert_ne!(powered, 1, "omega is not primitive");

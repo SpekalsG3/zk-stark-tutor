@@ -1,6 +1,5 @@
 use serde::Serialize;
 use crate::crypto::blake2b512::blake2b512;
-use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
 
 pub struct MerkleRoot;
@@ -104,7 +103,10 @@ impl<'a> MerkleRoot {
 
 #[cfg(test)]
 mod tests {
-  use crate::field::field::{Field, FIELD_PRIME};
+  use crate::field::{
+    field_element::FieldElement,
+    field::{Field, FIELD_PRIME},
+  };
   use super::*;
 
   #[test]

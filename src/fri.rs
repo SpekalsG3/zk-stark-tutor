@@ -1,4 +1,4 @@
-use std::ops::BitXor;
+
 use serde::Serialize;
 use crate::crypto::blake2b512::blake2b512;
 use crate::field::field::Field;
@@ -70,7 +70,7 @@ impl<'a> FRI<'a> {
   fn sample_index (&self, bytes: Bytes, size: usize) -> usize {
     assert_ne!(size, 0, "modulo zero is impossible");
 
-    let mut iter: BitIter<usize> = size.into();
+    let iter: BitIter<usize> = size.into();
     let bit = iter.bit_index().unwrap(); // `None` only if zero, asserted above
     let bytes_num = bit / 8 + 1;
 
@@ -107,7 +107,7 @@ impl<'a> FRI<'a> {
     let mut counter = 0;
 
     while indices.len() < number {
-      let mut bytes = seed.clone() + Bytes::new(vec![0; counter]);
+      let bytes = seed.clone() + Bytes::new(vec![0; counter]);
 
       let index = self.sample_index(blake2b512(bytes), size);
       let reduced_index = index % reduced_size;

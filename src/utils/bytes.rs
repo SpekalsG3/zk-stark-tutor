@@ -85,7 +85,6 @@ impl<'a> Iterator for Iter<'a> {
 
 #[cfg(test)]
 mod tests {
-  use serde::__private::de::IdentifierDeserializer;
   use super::*;
 
   #[test]
