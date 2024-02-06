@@ -161,8 +161,6 @@ impl<'a> FRI<'a> {
 
       // get challenge
       let challenge = proof_stream.fiat_shamir_prover(PROOF_BYTES);
-      println!("challenge {:?}", challenge.to_hex());
-      exit(0);
       let alpha = self.field.sample(&challenge);
 
       codewords.push(codeword.clone());
