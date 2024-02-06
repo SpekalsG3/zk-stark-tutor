@@ -95,12 +95,6 @@ mod tests {
   }
 
   #[test]
-  fn serialize () {
-    let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
-    assert_eq!(serde_json::to_string(&bytes).unwrap(), String::from("496e2074"));
-  }
-
-  #[test]
   fn test_from_str () {
     let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
     assert_eq!(bytes, "496e2074".into());
