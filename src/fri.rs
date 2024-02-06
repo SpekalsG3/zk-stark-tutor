@@ -1,4 +1,4 @@
-
+use std::process::exit;
 use serde::Serialize;
 use crate::crypto::blake2b512::blake2b512;
 use crate::field::field::Field;
@@ -10,7 +10,7 @@ use crate::utils::bytes::Bytes;
 
 const PROOF_BYTES: usize = 32;
 
-#[derive(Serialize, Clone)]
+#[derive(Clone, Serialize)]
 pub enum ProofStreamEnum<'a> {
   Root(Bytes),
   Codeword(Vec<FieldElement<'a>>),
@@ -124,7 +124,7 @@ impl<'a> FRI<'a> {
 
   pub fn commit (
     &self,
-    codeword: Vec<FieldElement<'a>>,
+    mut codeword: Vec<FieldElement<'a>>,
     proof_stream: &mut ProofStream<'a>,
   ) -> Vec<Vec<FieldElement<'a>>> {
     let one = self.field.one();
@@ -139,9 +139,17 @@ impl<'a> FRI<'a> {
 
     let mut codewords = Vec::with_capacity(num_rounds);
 
-    let mut codeword = codeword;
-
     for r in 0..num_rounds {
+      /*
+        TODO:
+          serialization differs
+          => merkle root is different
+          => proof_stream is different
+          => fiat_shamir_prover is different
+          => last codeword is different
+          BUT first codeword is the same. Maybe that's the problem?
+      */
+
       // compute and send Merkle root
       let root = MerkleRoot::commit(&codeword);
       proof_stream.push(ProofStreamEnum::Root(root));
@@ -152,7 +160,10 @@ impl<'a> FRI<'a> {
       }
 
       // get challenge
-      let alpha = self.field.sample(&proof_stream.fiat_shamir_prover(PROOF_BYTES));
+      let challenge = proof_stream.fiat_shamir_prover(PROOF_BYTES);
+      println!("challenge {:?}", challenge.to_hex());
+      exit(0);
+      let alpha = self.field.sample(&challenge);
 
       codewords.push(codeword.clone());
 
@@ -266,10 +277,10 @@ impl<'a> FRI<'a> {
     let mut omega = self.omega;
     let mut offset = self.offset;
 
-    let mut roots = vec![];
-    let mut alphas = vec![];
-
     let num_rounds = self.num_rounds();
+
+    let mut roots = Vec::with_capacity(num_rounds);
+    let mut alphas = Vec::with_capacity(num_rounds);
 
     for r in 0..num_rounds {
       let root = match proof_stream.pull() {
@@ -278,8 +289,8 @@ impl<'a> FRI<'a> {
           return Err(format!("expected {r}th item in proof stream to be root"));
         }
       };
-      roots.push(root);
 
+      roots.push(root);
       alphas.push(self.field.sample(&proof_stream.fiat_shamir_verifier(PROOF_BYTES)));
     }
 
@@ -294,9 +305,8 @@ impl<'a> FRI<'a> {
       return Err("last codeword is not well formed".to_string());
     }
 
-    let degree = (last_codeword.len() / self.expansion_factor) - 1;
-
     // check if it is low degree
+    let degree = (last_codeword.len() / self.expansion_factor) - 1;
     let mut last_omega = omega;
     let mut last_offset = offset;
     for _ in 0..num_rounds-1 {
@@ -317,13 +327,18 @@ impl<'a> FRI<'a> {
       return Err("re-evaluated codeword does not match original".to_string());
     }
 
-    if let Some(poly_degree) = poly.degree() {
-      if poly_degree > degree {
-        return Err(format!(
-          "last codeword does not correspond to polynomial of low enough degree (it is {} but should be {})",
-          poly_degree,
-          degree,
-        ));
+    match poly.degree() {
+      None => {
+        return Err("Received none instead of polynomial degree".to_string());
+      },
+      Some(poly_degree) => {
+        if poly_degree > degree {
+          return Err(format!(
+            "last codeword does not correspond to polynomial of low enough degree (it is {} but should be {})",
+            poly_degree,
+            degree,
+          ));
+        }
       }
     }
 
@@ -356,7 +371,7 @@ impl<'a> FRI<'a> {
       let mut bb = vec![];
       let mut cc = vec![];
       for s in 0..self.num_colinearity_tests {
-        let (ay, by, cy) = match proof_stream.pull() { 
+        let (ay, by, cy) = match proof_stream.pull() {
           Some(ProofStreamEnum::Leafs(l)) => l,
           _ => {
             return Err(format!(
@@ -373,6 +388,18 @@ impl<'a> FRI<'a> {
         if r == 0 {
           polynomial_values.push((*indices_a.get(s).unwrap(), ay));
           polynomial_values.push((*indices_b.get(s).unwrap(), by));
+        }
+
+        // # colinearity check
+        let ax = offset * (omega ^ *indices_a.get(s).unwrap() as u128);
+        let bx = offset * (omega ^ *indices_b.get(s).unwrap() as u128);
+        let cx = alphas[r];
+        if !Polynomial::test_colinearity(vec![
+          (ax, ay),
+          (bx, by),
+          (cx, cy),
+        ]) {
+          return Err("colinearity check failure".to_string());
         }
       }
 
@@ -452,12 +479,12 @@ mod tests {
   fn test_verify () {
     // constants
     let field = Field::new(FIELD_PRIME);
-    let degree = 64; // power of 2
+    let degree = 63; // power of 2
     let expansion_factor = 4; // power of 2
     let num_colinearity_tests = 17;
 
     // calculated
-    let codeword_initial_length = degree * expansion_factor;
+    let codeword_initial_length = (degree + 1) * expansion_factor;
     let mut codeword_log_length = 0;
     let mut codeword_length = codeword_initial_length;
     while codeword_length > 1 {
@@ -479,7 +506,7 @@ mod tests {
     );
 
     let polynomial = Polynomial::new(
-      (0..degree as u128)
+      (0..(degree as u128 + 1))
         .map(|i| FieldElement {
           field: &field,
           value: i,

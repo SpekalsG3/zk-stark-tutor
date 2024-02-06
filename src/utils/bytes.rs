@@ -2,9 +2,7 @@ use std::ops::Add;
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
-pub struct Bytes {
-  bytes: Vec<u8>
-}
+pub struct Bytes(Vec<u8>);
 
 impl Serialize for Bytes {
   // todo tests
@@ -20,21 +18,18 @@ pub struct Iter<'a> {
 
 impl Bytes {
   pub fn new (buf: Vec<u8>) -> Self {
-    Self {
-      bytes: buf.to_vec()
-    }
+    Self (buf.to_vec())
   }
 
   pub fn to_hex (&self) -> String {
-    self
-      .bytes
+    self.0
       .iter()
       .map(|b| format!("{:02x}", b))
       .collect::<String>()
   }
 
   pub fn bytes (&self) -> &[u8] {
-    &self.bytes
+    &self.0
   }
 
   pub fn iter (&self) -> Iter<'_> {
@@ -47,27 +42,33 @@ impl Bytes {
 
 impl From<&str> for Bytes {
   fn from (s: &str) -> Self {
-    Bytes {
-      bytes: (0..s.len())
+    Bytes (
+      (0..s.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
-        .collect(),
-    }
+        .collect()
+    )
   }
 }
 
 impl From<&[u8]> for Bytes {
   fn from (value: &[u8]) -> Self {
-    Bytes {
-      bytes: value.to_vec(),
-    }
+    Bytes (
+      value.to_vec(),
+    )
+  }
+}
+
+impl From<Vec<u8>> for Bytes {
+  fn from(value: Vec<u8>) -> Self {
+    Self(value)
   }
 }
 
 impl Add for Bytes {
   type Output = Bytes;
   fn add (mut self, rhs: Self) -> Self::Output {
-    self.bytes.extend(rhs.bytes);
+    self.0.extend(rhs.0);
     self
   }
 }
@@ -75,7 +76,7 @@ impl Add for Bytes {
 impl<'a> Iterator for Iter<'a> {
   type Item = &'a u8;
   fn next (&mut self) -> Option<Self::Item> {
-    let item = self.bytes.bytes.get(self.i);
+    let item = self.bytes.0.get(self.i);
 
     self.i += 1;
 
@@ -89,38 +90,32 @@ mod tests {
 
   #[test]
   fn test_to_hex () {
-    let bytes = Bytes {
-      bytes: vec![0x49,0x6e,0x20,0x74],
-    };
+    let bytes = Bytes(vec![0x49,0x6e,0x20,0x74]);
     assert_eq!(bytes.to_hex(), String::from("496e2074"));
   }
 
   #[test]
+  fn serialize () {
+    let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
+    assert_eq!(serde_json::to_string(&bytes).unwrap(), String::from("496e2074"));
+  }
+
+  #[test]
   fn test_from_str () {
-    let bytes = Bytes {
-      bytes: vec![0x49,0x6e,0x20,0x74],
-    };
+    let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
     assert_eq!(bytes, "496e2074".into());
   }
 
   #[test]
   fn add () {
-    let bytes_a = Bytes {
-      bytes: vec![0x49,0x6e],
-    };
-    let bytes_b = Bytes {
-      bytes: vec![0x20,0x74],
-    };
-    assert_eq!(bytes_a + bytes_b, Bytes {
-      bytes: vec![0x49,0x6e,0x20,0x74],
-    });
+    let bytes_a = Bytes (vec![0x49,0x6e]);
+    let bytes_b = Bytes (vec![0x20,0x74]);
+    assert_eq!(bytes_a + bytes_b, Bytes (vec![0x49,0x6e,0x20,0x74]));
   }
 
   #[test]
   fn iter () {
-    let bytes = Bytes {
-      bytes: vec![0x49,0x6e,0x20,0x74],
-    };
+    let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
     let mut iter = bytes.iter();
     assert_eq!(iter.next(), Some(&0x49));
     assert_eq!(iter.next(), Some(&0x6e));

@@ -115,9 +115,9 @@ impl<'a> Field {
       if b % 2 == 1 {
         res = self.add_mod(res, a);
       }
-    
+
       a = self.add_mod(a, a);
-    
+
       b /= 2;
     }
 
@@ -127,10 +127,10 @@ impl<'a> Field {
     //   if a & 1 == 1  {
     //     res ^= b;
     //   }
-    // 
+    //
     //   a >>= 1;
     //   b <<= 1;
-    // 
+    //
     //   if degree(b) == self.degree {
     //     b ^= self.prime;
     //   }
@@ -182,7 +182,7 @@ mod tests {
         field.mul_mod(acc, z.value)
       });
     assert_eq!(powered, 1, "omega is not {}th root of unity", n);
-    
+
     let powered = (0..n-2)
       .fold(z.value, |acc, _| {
         field.mul_mod(acc, z.value)

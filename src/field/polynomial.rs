@@ -28,19 +28,19 @@ impl<'a> Polynomial<'a> {
       coefficients: vec![],
     }
   }
-  
+
   pub fn degree (&self) -> Option<usize> {
     if self.coefficients.len() == 0 {
       return None;
     }
-    
+
     let zero = self.coefficients.first().unwrap().field.zero();
     self
       .coefficients
       .iter()
       .enumerate()
       .fold(None, |acc, (i, c)| {
-        if c.eq(&zero) {
+        if c == &zero {
           acc
         } else {
           Some(i)
@@ -127,7 +127,7 @@ impl<'a> Polynomial<'a> {
 
         prod = prod * (
           x.clone() - Polynomial::new(vec![*el_j])
-        ) * Polynomial::new(vec![ (*el_i - *el_j).inverse() ])
+        ) * Polynomial::new(vec![ (*el_i - *el_j).inverse() ]);
       }
 
       acc = acc + prod;
@@ -329,7 +329,7 @@ impl<'a> BitXor<u128> for Polynomial<'a> {
     if self.is_zero() {
       return Polynomial::zero();
     }
-    
+
     let one = self.coefficients.first().unwrap().field.one();
     let mut acc = Polynomial {
       coefficients: vec![one],
@@ -547,72 +547,30 @@ mod tests {
 
     let poly = Polynomial::interpolate_domain(
       &(1..4)
-        .map(|i| FieldElement {
-          field: &field,
-          value: i,
-        })
+        .map(|i| FieldElement::new(&field, i))
         .collect::<Vec<_>>(),
       &vec![
-        FieldElement {
-          field: &field,
-          value: 1,
-        },
-        FieldElement {
-          field: &field,
-          value: 4,
-        },
-        FieldElement {
-          field: &field,
-          value: 9,
-        },
+        FieldElement::new(&field, 1),
+        FieldElement::new(&field, 4),
+        FieldElement::new(&field, 9),
       ]
     );
     assert_eq!(poly, Polynomial::new(vec![
-      FieldElement {
-        field: &field,
-        value: 0,
-      },
-      FieldElement {
-        field: &field,
-        value: 0,
-      },
-      FieldElement {
-        field: &field,
-        value: 1,
-      },
+      FieldElement::new(&field, 0),
+      FieldElement::new(&field, 0),
+      FieldElement::new(&field, 1),
     ]));
 
     let domain = (1..7)
-      .map(|i| FieldElement {
-        field: &field,
-        value: i,
-      })
+      .map(|i| FieldElement::new(&field, i))
       .collect::<Vec<_>>();
     let values = vec![
-      FieldElement {
-        field: &field,
-        value: 5,
-      },
-      FieldElement {
-        field: &field,
-        value: 2,
-      },
-      FieldElement {
-        field: &field,
-        value: 2,
-      },
-      FieldElement {
-        field: &field,
-        value: 1,
-      },
-      FieldElement {
-        field: &field,
-        value: 5,
-      },
-      FieldElement {
-        field: &field,
-        value: 0,
-      },
+      FieldElement::new(&field, 5),
+      FieldElement::new(&field, 2),
+      FieldElement::new(&field, 2),
+      FieldElement::new(&field, 1),
+      FieldElement::new(&field, 5),
+      FieldElement::new(&field, 0),
     ];
     let poly = Polynomial::interpolate_domain(
       &domain,

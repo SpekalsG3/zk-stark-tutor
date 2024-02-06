@@ -3,6 +3,7 @@ use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
 use serde::Serialize;
 use crate::field::field::Field;
 use crate::utils::bit_iter::BitIter;
+use crate::utils::bytes::Bytes;
 use crate::utils::xgcd::u_xgcd;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, PartialOrd)]
@@ -12,6 +13,13 @@ pub struct FieldElement<'a> {
 }
 
 impl<'a> FieldElement<'a> {
+  pub fn new(field: &'a Field, value: u128) -> Self {
+    Self {
+      field,
+      value,
+    }
+  }
+
   // inverse of `x` is `x ** -1 = 1/x` so that `x` multiplied by inversed `x` is `1`
   pub fn inverse (&self) -> FieldElement<'a> {
     let (a, _, _) = u_xgcd(self.value, self.field.order);
@@ -22,19 +30,21 @@ impl<'a> FieldElement<'a> {
       Ordering::Equal => 0,
       Ordering::Less => self.field.sub_mod(self.field.order, a.neg() as u128),
     };
-    
+
     FieldElement {
       field: self.field,
       value: a,
     }
   }
 
-  pub fn bytes (&self) -> Vec<u8> {
-    self.to_string().into_bytes()
-  }
-
   pub fn is_zero (self) -> bool {
     self.value == 0
+  }
+}
+
+impl<'a> Into<Bytes> for FieldElement<'a> {
+  fn into(self) -> Bytes {
+    self.to_string().as_bytes().into()
   }
 }
 
@@ -122,7 +132,7 @@ impl<'a> BitXor<u128> for FieldElement<'a> {
         acc = acc * self;
       }
     }
-    
+
     acc
   }
 }
@@ -222,7 +232,7 @@ mod tests {
     };
     assert_eq!(el_1 / el_2, FieldElement {
       field: &field,
-      value: 6, // because 6 * 7 = 2 (mod 8) 
+      value: 6, // because 6 * 7 = 2 (mod 8)
     });
   }
 
@@ -328,9 +338,9 @@ mod tests {
          value: 99,
        },
     );
-    assert_eq!(FieldElement { 
-        field: &field, 
-        value: 20, 
+    assert_eq!(FieldElement {
+        field: &field,
+        value: 20,
       }.neg(),
        FieldElement {
          field: &field,
@@ -364,7 +374,7 @@ mod tests {
 
   // fn bitxor () {
   //   let field = Field::new(FIELD_PRIME);
-  // 
+  //
   //   let el = FieldElement {
   //     field: &field,
   //     value: 0b110011010, // 410

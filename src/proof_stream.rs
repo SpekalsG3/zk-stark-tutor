@@ -42,10 +42,10 @@ impl<T> ProofStream<T>
     let str = serde_json::to_string(&self.objects).unwrap();
     hasher.update(str.as_bytes());
 
-    let mut buf = vec![0u8; num_bytes/8];
+    let mut buf = vec![0u8; num_bytes];
     let reader = hasher.finalize_xof();
     reader
-      .take(num_bytes as u64/8)
+      .take(num_bytes as u64)
       .read(&mut buf)
       .unwrap(); // under the hood it asserts so Result is useless
 
@@ -60,10 +60,10 @@ impl<T> ProofStream<T>
     let str = serde_json::to_string(slice).unwrap();
     hasher.update(str.as_bytes());
 
-    let mut buf = vec![0u8; num_bytes/8];
+    let mut buf = vec![0u8; num_bytes];
     let reader = hasher.finalize_xof();
     reader
-      .take(num_bytes as u64/8)
+      .take(num_bytes as u64)
       .read(&mut buf)
       .unwrap(); // under the hood it asserts so Result is useless
 
@@ -110,6 +110,8 @@ mod tests {
     }
 
     let mut proof_stream = ProofStream::<SomeObjects>::new();
+
+    assert_eq!(proof_stream.fiat_shamir_prover(512), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c".into());
 
     proof_stream.push(SomeObjects::Str(String::from("Hello, World!")));
     proof_stream.push(SomeObjects::Vec(vec![0, 1, 5, 234]));
