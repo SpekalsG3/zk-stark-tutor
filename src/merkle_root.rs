@@ -1,11 +1,8 @@
-use serde::Serialize;
 use crate::crypto::blake2b512::blake2b512;
 use crate::utils::bytes::Bytes;
 
 pub struct MerkleRoot;
 
-// codeword - [FieldElement]
-// codewords - [[FieldElement]]
 impl<'a> MerkleRoot {
   fn commit_ (leafs: &[Bytes]) -> Bytes {
     let len = leafs.len();
@@ -23,13 +20,12 @@ impl<'a> MerkleRoot {
 
   pub fn commit <T>(leafs: &[T]) -> Bytes
     where
-      T: Serialize
+      T: Into<Bytes> + Clone
   {
     let leafs = leafs
       .iter()
       .map(|l| {
-        let str = serde_json::to_string(l).unwrap();
-        blake2b512(str.as_bytes().into())
+        blake2b512(l.clone().into())
       })
       .collect::<Vec<_>>();
     MerkleRoot::commit_(&leafs)
@@ -58,13 +54,12 @@ impl<'a> MerkleRoot {
 
   pub fn open <T>(index: usize, leafs: &[T]) -> Vec<Bytes>
     where
-      T: Serialize
+      T: Into<Bytes> + Clone
   {
     let leafs = leafs
       .iter()
       .map(|l| {
-        let str = serde_json::to_string(l).unwrap();
-        blake2b512(str.as_bytes().into())
+        blake2b512(l.clone().into())
       })
       .collect::<Vec<_>>();
     MerkleRoot::open_(index, &leafs)
@@ -93,10 +88,9 @@ impl<'a> MerkleRoot {
 
   pub fn verify <T>(root: &Bytes, index: usize, path: &[Bytes], leaf: &T) -> bool
     where
-      T: Serialize
+        T: Into<Bytes> + Clone
   {
-    let str = serde_json::to_string(leaf).unwrap();
-    let hash = blake2b512(str.as_bytes().into());
+    let hash = blake2b512(leaf.clone().into());
     MerkleRoot::verify_(root, index, path, hash)
   }
 }
