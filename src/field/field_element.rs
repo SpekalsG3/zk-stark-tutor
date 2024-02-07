@@ -160,6 +160,10 @@ mod tests {
   #[test]
   fn div () {
     let field = Field::new(FIELD_PRIME);
+    assert_eq!(
+      FieldElement::new(&field, 74658620945386735627456854792784352353) / FieldElement::new(&field, 85408008396924667383611388730472331217),
+      FieldElement::new(&field, 120557879365253444230411244907275635216)
+    );
 
     let el_1 = FieldElement::new(&field, 12);
     let el_2 = FieldElement::new(&field, 4);

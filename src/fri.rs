@@ -128,10 +128,7 @@ impl<'a> FRI<'a> {
     proof_stream: &mut ProofStream<'a>,
   ) -> Vec<Vec<FieldElement<'a>>> {
     let one = self.field.one();
-    let two = FieldElement {
-      field: self.field,
-      value: 2,
-    };
+    let two_inv = FieldElement::new(self.field, 2).inverse();
     let mut omega = self.omega;
     let mut offset = self.offset;
 
@@ -171,8 +168,8 @@ impl<'a> FRI<'a> {
         .map(|i| {
           let alpha_by_offset = alpha / (offset * (omega ^ i as u128));
           let first_half = (one + alpha_by_offset) * *codeword.get(i).unwrap();
-          let second_half = (one - alpha_by_offset) * *codeword.get(codeword_half_len + 1).unwrap();
-          two.inverse() * (first_half + second_half)
+          let second_half = (one - alpha_by_offset) * *codeword.get(codeword_half_len + i).unwrap();
+          two_inv * (first_half + second_half)
         })
         .collect();
 
