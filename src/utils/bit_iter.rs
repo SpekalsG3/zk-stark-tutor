@@ -12,6 +12,10 @@ impl<T> BitIter<T> {
 
 impl From<u128> for BitIter<u128> {
   fn from (value: u128) -> Self {
+    if value == 0 {
+      return BitIter(Some(0), 0);
+    }
+
     // for i in (0..u128::BITS).rev() {
     //   if (value >> i) & 1 == 1 {
     //     return BitIter(Some(i), value);
@@ -25,6 +29,10 @@ impl From<u128> for BitIter<u128> {
 
 impl From<usize> for BitIter<usize> {
   fn from (value: usize) -> Self {
+    if value == 0 {
+      return BitIter(Some(0), 0);
+    }
+
     // for i in (0..usize::BITS).rev() {
     //   if (value >> i) & 1 == 1 {
     //     return BitIter(Some(i), value);
@@ -32,7 +40,7 @@ impl From<usize> for BitIter<usize> {
     // }
     let pos = (0..usize::BITS)
       .rposition(|i| (value >> i) & 1 == 1);
-    return BitIter(pos, value);
+    BitIter(pos, value)
   }
 }
 
@@ -81,10 +89,12 @@ mod tests {
   }
 
   #[test]
-  fn test_none () {
-    let mut s: BitIter<usize> = 0.into(); // 1011
+  fn test_zero () {
+    let mut s: BitIter<usize> = 0.into(); // 0
 
-    assert_eq!(s, BitIter(None, 0));
+    assert_eq!(s, BitIter(Some(0), 0));
+    assert_eq!(s.next(), Some(false));
     assert_eq!(s.next(), None);
+    assert_eq!(s, BitIter(None, 0));
   }
 }

@@ -107,17 +107,17 @@ mod tests {
   fn shl_less_128 () {
     let var: U512 = u128::MAX.into();
     assert_eq!(var.clone() << 1, U512 {
-      bits: [0, 0, 1, u128::MAX - 1],
+      bits: [0, 0, 1, u128::MAX << 1],
     });
     assert_eq!(var.clone() << 2, U512 {
-      bits: [0, 0, 3, u128::MAX - 3],
+      bits: [0, 0, 3, u128::MAX << 2],
     });
 
     let var = U512 {
       bits: [0b1, 0b0, u128::MAX, 0b1011],
     };
     assert_eq!(var << 4, U512 {
-      bits: [0b10000, 0b1111, u128::MAX - 15, 0b10110000]
+      bits: [0b10000, 0b1111, u128::MAX << 4, 0b10110000]
     });
 
     let var = U512 {
@@ -134,8 +134,8 @@ mod tests {
     assert_eq!(var.clone() << u128::BITS, U512 {
       bits: [0, 0, u128::MAX, 0],
     });
-    assert_eq!(var.clone() << u128::BITS + 1, U512 {
-      bits: [0, 1, u128::MAX - 1, 0],
+    assert_eq!(var.clone() << (u128::BITS + 1), U512 {
+      bits: [0, 1, u128::MAX << 1, 0],
     });
     assert_eq!(var.clone() << u128::BITS * 2, U512 {
       bits: [0, u128::MAX, 0, 0],
@@ -145,10 +145,10 @@ mod tests {
     });
 
     let var = U512 {
-      bits: [0b1, 0b0, u128::MAX, 0b1011],
+      bits: [0b10, 0b0, u128::MAX, 0b1011],
     };
-    assert_eq!(var << u128::BITS + 1, U512 {
-      bits: [0b1, u128::MAX - 1, 0b10110, 0b0],
+    assert_eq!(var << (u128::BITS + 1), U512 {
+      bits: [0b1, u128::MAX << 1, 0b10110, 0b0],
     });
   }
 

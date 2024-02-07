@@ -38,12 +38,12 @@ impl<'a> FRI<'a> {
     num_colinearity_tests: usize,
   ) -> Self {
     Self {
-      omega: omega,
-      offset: offset,
+      omega,
+      offset,
       field: omega.field,
-      domain_length: domain_length,
-      expansion_factor: expansion_factor,
-      num_colinearity_tests: num_colinearity_tests,
+      domain_length,
+      expansion_factor,
+      num_colinearity_tests,
     }
   }
 

@@ -26,7 +26,7 @@ impl Field {
   pub fn new (order: u128) -> Field {
     // assert_eq!(order, FIELD_PRIME, "Only 1+407*2^119 currently implemented");
     Field {
-      order: order,
+      order,
     }
   }
 }
@@ -41,17 +41,10 @@ impl<'a> Field {
   }
 
   pub fn primitive_nth_root (&'a self, n: u128) -> FieldElement<'a> {
-    if self.order != FIELD_PRIME {
-      panic!("Unknown field, cannot return root of unity")
-    }
-
-    assert!((n & (n - 1) == 0) && n <= 1 << 119, "Field does not have any roots where n > 2^119 or not a power of two.");
+    assert!((n & (n - 1) == 0) && (n <= (1 << 119)), "Field does not have any roots where n > 2^119 or not a power of two.");
 
     // same as generator, is it important?
-    let mut root = FieldElement {
-      field: &self,
-      value: 85408008396924667383611388730472331217,
-    };
+    let mut root = self.generator();
 
     let mut order = 1 << 119;
     while order != n {
@@ -176,6 +169,15 @@ mod tests {
     let n_log = 8; // so that 2 ** `n_log` = n
     let z = field.primitive_nth_root(n);
 
+    assert_eq!(
+      field.primitive_nth_root(256),
+      FieldElement::new(&field, 178902808384765167578311106676137348214),
+    );
+    assert_eq!(
+      field.primitive_nth_root(2),
+      FieldElement::new(&field, 270497897142230380135924736767050121216),
+    );
+
     // straightforward
     let powered = (0..n-1)
       .fold(z.value, |acc, _| {
@@ -219,19 +221,15 @@ mod tests {
 
   #[test]
   fn neg () {
+    let field = Field::new(FIELD_PRIME);
+    assert_eq!(field.neg_mod(256), 270497897142230380135924736767050120961);
     let field = Field::new(100);
     assert_eq!(
-      field.add_mod(
-        20,
-        field.neg_mod(20),
-      ),
+      field.add_mod(20, field.neg_mod(20)),
       0,
     );
     assert_eq!(
-      field.add_mod(
-        20,
-        field.neg_mod(19),
-      ),
+      field.add_mod(20, field.neg_mod(19)),
       1,
     );
   }

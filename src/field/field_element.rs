@@ -93,8 +93,6 @@ impl<'a> Div for FieldElement<'a> {
       Ordering::Equal => 0,
     };
 
-    // assert_eq!(self.value / rhs.value, value, "division with remainder is not consistent");
-
     FieldElement {
       field: self.field,
       value: value,
@@ -143,102 +141,60 @@ mod tests {
   use crate::field::field::FIELD_PRIME;
 
   #[test]
-  fn test_mul () {
+  fn mul () {
     let field = Field::new(FIELD_PRIME);
+    assert_eq!(
+      FieldElement::new(&field, 49789714223038013592473676705012096123) * FieldElement::new(&field, 6534789852937546098347957826345234),
+      FieldElement::new(&field, 105250150227149389100670877502232671566),
+    );
 
-    let el_1 = FieldElement {
-      field: &field,
-      value: 8,
-    };
-    let el_3 = FieldElement {
-      field: &field,
-      value: 12,
-    };
-    assert_eq!(el_1 * el_3, FieldElement {
-      field: &field,
-      value: 96,
-    });
+    let el_1 = FieldElement::new(&field, 8);
+    let el_3 = FieldElement::new(&field, 12);
+    assert_eq!(el_1 * el_3, FieldElement::new(&field, 96));
 
-    let el_1 = FieldElement {
-      field: &field,
-      value: 3,
-    };
-    let el_3 = FieldElement {
-      field: &field,
-      value: 270497897142230380135924736767050121215,
-    };
-    assert_eq!(el_1 * el_3, FieldElement {
-      field: &field,
-      value: 270497897142230380135924736767050121211,
-    });
+    let el_1 = FieldElement::new(&field, 3);
+    let el_3 = FieldElement::new(&field, 270497897142230380135924736767050121215);
+    assert_eq!(el_1 * el_3, FieldElement::new(&field, 270497897142230380135924736767050121211));
   }
 
   #[test]
-  fn test_div_without_rem () {
+  fn div () {
     let field = Field::new(FIELD_PRIME);
 
-    let el_1 = FieldElement {
-      field: &field,
-      value: 12,
-    };
-    let el_2 = FieldElement {
-      field: &field,
-      value: 4,
-    };
-    assert_eq!(el_1 / el_2, FieldElement {
-      field: &field,
-      value: 3,
-    });
+    let el_1 = FieldElement::new(&field, 12);
+    let el_2 = FieldElement::new(&field, 4);
+    assert_eq!(el_1 / el_2, FieldElement::new(&field, 3));
 
-    let el_1 = FieldElement {
-      field: &field,
-      value: 270497897142230380135924736767050121215,
-    };
-    let el_2 = FieldElement {
-      field: &field,
-      value: 5,
-    };
-    assert_eq!(el_1 / el_2, FieldElement {
-      field: &field,
-      value: 54099579428446076027184947353410024243,
-    });
+    let el_1 = FieldElement::new(&field, 270497897142230380135924736767050121215);
+    let el_2 = FieldElement::new(&field, 5);
+    assert_eq!(el_1 / el_2, FieldElement::new(&field, 54099579428446076027184947353410024243));
 
-    let el_1 = FieldElement {
-      field: &field,
-      value: 270497897142230380135924736767050121215,
-    };
-    let el_2 = FieldElement {
-      field: &field,
-      value: 5,
-    };
-    assert_eq!(el_1 / el_2, FieldElement {
-      field: &field,
-      value: 54099579428446076027184947353410024243,
-    });
+    let el_1 = FieldElement::new(&field, 270497897142230380135924736767050121215);
+    let el_2 = FieldElement::new(&field, 5);
+    assert_eq!(el_1 / el_2, FieldElement::new(&field, 54099579428446076027184947353410024243));
+
+    assert_eq!(
+      FieldElement::new(&field, 5012096123) / FieldElement::new(&field, 6534789852937546098347957826345234),
+      FieldElement::new(&field, 109071144973379706934869779239844248849),
+    );
+
+    let field = Field::new(8);
+    let el_1 = FieldElement::new(&field, 2);
+    let el_2 = FieldElement::new(&field, 7);
+    assert_eq!(el_1 / el_2, FieldElement::new(
+      &field,
+      6, // because 6 * 7 = 2 (mod 8)
+    ));
   }
 
   #[test]
-  fn test_div_with_rem () {
-    let field = Field {
-      order: 8,
-    };
-    let el_1 = FieldElement {
-      field: &field,
-      value: 2,
-    };
-    let el_2 = FieldElement {
-      field: &field,
-      value: 7,
-    };
-    assert_eq!(el_1 / el_2, FieldElement {
-      field: &field,
-      value: 6, // because 6 * 7 = 2 (mod 8)
-    });
-  }
-
-  #[test]
-  fn test_inverse () {
+  fn inverse () {
     let field = Field::new(FIELD_PRIME);
+
+    assert_eq!(
+      FieldElement::new(&field, 256).inverse(),
+      FieldElement::new(&field, 269441264731518542713518780764053831681)
+    );
 
     let el = FieldElement {
       field: &field,
@@ -255,97 +211,66 @@ mod tests {
 
   #[test]
   fn add () {
+    let field = Field::new(FIELD_PRIME);
+    assert_eq!(
+      FieldElement::new(&field, 270497897142230380135924736767050120961) + FieldElement::new(&field, 300),
+      FieldElement::new(&field, 44),
+    );
+
     let field = Field::new(100);
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 20,
-      } + FieldElement {
-        field: &field,
-        value: 20,
-      },
-      FieldElement {
-        field: &field,
-        value: 40,
-      },
+      FieldElement::new(&field, 20) + FieldElement::new(&field, 20),
+      FieldElement::new(&field, 40),
     );
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 20,
-      } + (FieldElement {
-        field: &field,
-        value: 19,
-      }).neg(),
+      FieldElement::new(&field, 20) + FieldElement::new(&field, 19).neg(),
       field.one(),
     );
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 80,
-      } + FieldElement {
-        field: &field,
-        value: 21,
-      },
+      FieldElement::new(&field, 80) + FieldElement::new(&field, 21),
       field.one(),
     );
   }
 
   #[test]
   fn sub () {
+    let field = Field::new(FIELD_PRIME);
+    assert_eq!(
+      FieldElement::new(&field, 44) - FieldElement::new(&field, 200),
+      FieldElement::new(&field, 270497897142230380135924736767050121061),
+    );
+
     let field = Field::new(100);
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 20,
-      } - FieldElement {
-        field: &field,
-        value: 20,
-      },
+      FieldElement::new(&field, 20) - FieldElement::new(&field, 20),
       field.zero(),
     );
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 20,
-      } - FieldElement {
-        field: &field,
-        value: 19,
-      },
+      FieldElement::new(&field, 20) - FieldElement::new(&field, 19),
       field.one(),
     );
     assert_eq!(
-      FieldElement {
-        field: &field,
-        value: 20,
-      } - FieldElement {
-        field: &field,
-        value: 21,
-      },
+      FieldElement::new(&field, 20) - FieldElement::new(&field, 21),
       field.one().neg(),
     );
   }
 
   #[test]
   fn neg () {
-    let field = Field::new(100);
-    assert_eq!(FieldElement {
-        field: &field,
-        value: 1,
-      }.neg(),
-       FieldElement {
-         field: &field,
-         value: 99,
-       },
+    let field = Field::new(FIELD_PRIME);
+    assert_eq!(
+      FieldElement::new(&field, 6534789852937546098).neg(),
+      FieldElement::new(&field, 270497897142230380129389946914112575119),
     );
-    assert_eq!(FieldElement {
-        field: &field,
-        value: 20,
-      }.neg(),
-       FieldElement {
-         field: &field,
-         value: 80,
-       },
+
+    let field = Field::new(100);
+    assert_eq!(
+      FieldElement::new(&field, 1).neg(),
+      FieldElement::new(&field, 99),
+    );
+    assert_eq!(
+      FieldElement::new(&field, 20).neg(),
+      FieldElement::new(&field, 80),
     );
   }
 
@@ -353,23 +278,13 @@ mod tests {
   fn pow () {
     let field = Field::new(FIELD_PRIME);
 
-    let el = FieldElement {
-      field: &field,
-      value: 15,
-    };
-    assert_eq!(el ^ 4, FieldElement {
-      field: &field,
-      value: 50625,
-    });
+    assert_eq!(FieldElement::new(&field, 6534789852937546098) ^ 501209126122, FieldElement::new(&field, 256557788041265930815463337858691703671));
 
-    let el = FieldElement {
-      field: &field,
-      value: 270497897142230380135,
-    };
-    assert_eq!(el ^ 8, FieldElement {
-      field: &field,
-      value: 79016866124691016201920330826259043252,
-    });
+    let el = FieldElement::new(&field, 15);
+    assert_eq!(el ^ 4, FieldElement::new(&field, 50625));
+
+    let el = FieldElement::new(&field, 270497897142230380135);
+    assert_eq!(el ^ 8, FieldElement::new(&field, 79016866124691016201920330826259043252));
   }
 
   // fn bitxor () {
