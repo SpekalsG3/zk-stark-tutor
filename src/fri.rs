@@ -213,7 +213,7 @@ impl<'a> FRI<'a> {
     for s in 0..self.num_colinearity_tests {
       proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_a.get(s).unwrap(), codeword_current)));
       proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_b.get(s).unwrap(), codeword_current)));
-      proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_c.get(s).unwrap(), codeword_current)));
+      proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_c.get(s).unwrap(), codeword_next)));
     }
 
     let mut indices_ab = indices_a;
@@ -235,10 +235,8 @@ impl<'a> FRI<'a> {
 
     let codewords = self.commit(codeword, proof_stream);
 
-    let seed = proof_stream.fiat_shamir_prover(PROOF_BYTES);
-
     let top_level_indices = self.sample_indices(
-      seed,
+      proof_stream.fiat_shamir_prover(PROOF_BYTES),
       codewords.get(1).unwrap().len(),
       codewords.last().unwrap().len(),
       self.num_colinearity_tests,
@@ -358,7 +356,7 @@ impl<'a> FRI<'a> {
       let indices_b = indices_a
         .iter()
         .map(|i| {
-          i % (self.domain_length >> (r + 1))
+          i + (self.domain_length >> (r + 1))
         })
         .collect::<Vec<_>>();
 
@@ -446,7 +444,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_sample_indices () {
+  fn sample_indices () {
     let n = 256;
 
     let field = Field::new(FIELD_PRIME);
@@ -459,14 +457,14 @@ mod tests {
     );
 
     let sample = fri.sample_indices(
-      "ec1c30ce".into(),
+      "d4b6e8af1114859c1c24b6496a3aef2f55a21105bc103af7e12dc3b2c101fe66".into(),
       128,
       128,
       17,
     );
     assert_eq!(
       sample,
-      vec![84, 14, 109, 66, 5, 100, 30, 12, 38, 86, 42, 53, 49, 92, 4, 44, 20],
+      vec![40, 121, 5, 113, 97, 68, 126, 88, 26, 82, 81, 91, 93, 125, 10, 57, 48],
     )
   }
 

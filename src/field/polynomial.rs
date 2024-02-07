@@ -165,8 +165,8 @@ impl<'a> Polynomial<'a> {
     let poly = Polynomial::interpolate_domain(&domain, &values);
 
     match poly.degree() {
-      Some(d) => d <= 1,
-      None => true,
+      Some(d) => d == 1,
+      None => false,
     }
   }
 
