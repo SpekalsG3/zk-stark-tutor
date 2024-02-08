@@ -1,4 +1,4 @@
-use std::process::exit;
+use std::fmt::{Display, Formatter};
 use serde::Serialize;
 use crate::crypto::blake2b512::blake2b512;
 use crate::field::field::Field;
@@ -10,12 +10,50 @@ use crate::utils::bytes::Bytes;
 
 const PROOF_BYTES: usize = 32;
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub enum ProofStreamEnum<'a> {
   Root(Bytes),
   Codeword(Vec<FieldElement<'a>>),
   Path(Vec<Bytes>),
   Leafs((FieldElement<'a>, FieldElement<'a>, FieldElement<'a>)),
+}
+
+impl Display for ProofStreamEnum<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      ProofStreamEnum::Root(r) => {
+        write!(f, "{}", r.to_hex())
+      }
+      ProofStreamEnum::Codeword(c) => {
+        let mut iter = c.iter();
+        if let Some(o) = iter.next() {
+          write!(f, "[{}", o.value)?;
+        }
+        for o in iter {
+          write!(f, ",{}", o.value)?;
+        }
+        write!(f, "]")
+      }
+      ProofStreamEnum::Path(p) => {
+        let mut iter = p.iter();
+        if let Some(o) = iter.next() {
+          write!(f, "[{}", o.to_hex())?;
+        }
+        for o in iter {
+          write!(f, ",{}", o.to_hex())?;
+        }
+        write!(f, "]")
+      }
+      ProofStreamEnum::Leafs(l) => {
+        write!(f,
+               "[{},{},{}]",
+               l.0.value,
+               l.1.value,
+               l.2.value,
+        )
+      }
+    }
+  }
 }
 
 type ProofStream<'a> = crate::proof_stream::ProofStream<ProofStreamEnum<'a>>;

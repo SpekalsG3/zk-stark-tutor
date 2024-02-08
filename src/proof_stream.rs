@@ -1,11 +1,29 @@
+use std::fmt::{Display, Formatter};
 use std::io::Read;
 use serde::{Serialize};
 use sha3::{digest::{Update, ExtendableOutput}, Shake256};
 use crate::utils::bytes::Bytes;
 
+#[derive(Debug)]
 pub struct ProofStream<T> {
   objects: Vec<T>,
   read_index: usize,
+}
+
+impl<T> Display for ProofStream<T>
+  where
+    T: Display
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let mut iter = self.objects.iter();
+    if let Some(o) = iter.next() {
+      write!(f, "{}", o)?;
+    }
+    for o in iter {
+      write!(f, ",{}", o)?;
+    }
+    Ok(())
+  }
 }
 
 impl<T> ProofStream<T>

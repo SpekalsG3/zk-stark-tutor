@@ -31,7 +31,7 @@ impl Shl<u32> for U512 {
     let shift = rhs % 128;
     let overflow_target = rhs as usize / 128;
     for i in (0..4).rev() {
-      let mut bit_i = self.bits.get_mut(i).unwrap();
+      let bit_i = self.bits.get_mut(i).unwrap();
 
       if overflow_target + 1 <= i {
         let target_i = i - overflow_target - 1;
