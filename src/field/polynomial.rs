@@ -624,27 +624,27 @@ mod tests {
     })
   }
 
-  #[test]
-  fn neg () {
-    // todo
-    assert!(false)
-  }
+  // todo
+  // #[test]
+  // fn neg () {
+  //   unimplemented!()
+  // }
 
-  #[test]
-  fn sub () {
-    // todo
-    assert!(false)
-  }
+  // todo
+  // #[test]
+  // fn sub () {
+  //   unimplemented!()
+  // }
 
-  #[test]
-  fn mul () {
-    // todo
-    assert!(false)
-  }
+  // todo
+  // #[test]
+  // fn mul () {
+  //   unimplemented!()
+  // }
 
-  #[test]
-  fn rem () {
-    // todo
-    assert!(false)
-  }
+  // todo
+  // #[test]
+  // fn rem () {
+  //   unimplemented!()
+  // }
 }

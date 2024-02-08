@@ -1,7 +1,6 @@
 use std::cmp::Ordering;
 use serde::Serialize;
 use crate::field::field_element::FieldElement;
-use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 use crate::utils::u512::U512;
 
@@ -13,14 +12,6 @@ pub struct Field {
   pub order: u128,
 }
 
-fn degree (n: u128) -> usize {
-  let iter: BitIter<u128> = n.into();
-  if let Some((i, _)) = iter.enumerate().last() {
-    i
-  } else {
-    0
-  }
-}
 
 impl Field {
   pub fn new (order: u128) -> Field {
@@ -144,13 +135,6 @@ impl<'a> Field {
 #[cfg(test)]
 mod tests {
   use super::*;
-
-  #[test]
-  fn test_degree () {
-    assert_eq!(degree(5), 2);
-    assert_eq!(degree(11), 3);
-    assert_eq!(degree(1 << 119), 119);
-  }
 
   #[test]
   fn test_mul () {

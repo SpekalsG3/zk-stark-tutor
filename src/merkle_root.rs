@@ -104,7 +104,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_commit_one () {
+  fn commit_one () {
     let field = Field::new(FIELD_PRIME);
     // Serialized to: `{"field":{"prime":270497897142230380135924736767050121217},"value":11}`
     let bytes = MerkleRoot::commit(&[FieldElement {
@@ -118,7 +118,7 @@ mod tests {
   }
 
   #[test]
-  fn test_commit_two () {
+  fn commit_two () {
     let field = Field::new(FIELD_PRIME);
     let bytes = MerkleRoot::commit(&[FieldElement {
       field: &field,
@@ -145,7 +145,7 @@ mod tests {
   }
 
   #[test]
-  fn test_commit_four () {
+  fn commit_four () {
     let field = Field::new(FIELD_PRIME);
     let bytes = MerkleRoot::commit(&[FieldElement {
       field: &field,
@@ -167,7 +167,7 @@ mod tests {
   }
 
   #[test]
-  fn test_open () {
+  fn open () {
     let field = Field::new(FIELD_PRIME);
     let bytes = MerkleRoot::open(1, &[FieldElement {
       field: &field,
@@ -189,7 +189,7 @@ mod tests {
   }
 
   #[test]
-  fn test_verify () {
+  fn verify () {
     let field = Field::new(FIELD_PRIME);
     let result = MerkleRoot::verify(
       &"885d536abb872bb162a959541296e86019ae020cd2b3d90ef1bac4259315680bea5052f7cc4bff2dec4c507641748738d5869b9ba2ff9880d7086f430443dfe5".into(),

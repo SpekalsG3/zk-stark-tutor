@@ -1,5 +1,5 @@
 // original from tutorial - overflow when working close to boundary
-fn xgcd (a: u128, b: u128) -> (i128, i128, u128) {
+pub fn xgcd (a: u128, b: u128) -> (i128, i128, u128) {
   let mut r = (a, b);
   let mut s = (1_i128, 0_i128);
   let mut t = (0_i128, 1_i128);
@@ -44,7 +44,7 @@ pub fn u_xgcd (a: u128, b: u128) -> (i128, i128, u128) {
   (xy1.0, xy1.1, a.0)
 }
 
-fn multiplicative_inverse (x: u128, y: u128, m: u128) -> u128 {
+pub fn multiplicative_inverse (x: u128, y: u128, m: u128) -> u128 {
   let (a, _, _) = u_xgcd(y, m);
   if a < 0 {
     (m - x) * (-a as u128) % m

@@ -10,6 +10,19 @@ impl<T> BitIter<T> {
   }
 }
 
+impl<T> BitIter<T>
+  where
+    Self: Iterator
+{
+  pub fn degree (self) -> usize {
+    if let Some((i, _)) = self.enumerate().last() {
+      i
+    } else {
+      0
+    }
+  }
+}
+
 impl From<u128> for BitIter<u128> {
   fn from (value: u128) -> Self {
     if value == 0 {
@@ -74,6 +87,13 @@ impl<T> Iterator for BitIter<T>
 #[cfg(test)]
 mod tests {
   use super::*;
+
+  #[test]
+  fn degree () {
+    assert_eq!(BitIter::from(5_usize).degree(), 2);
+    assert_eq!(BitIter::from(11_usize).degree(), 3);
+    assert_eq!(BitIter::from(1_u128 << 119).degree(), 119);
+  }
 
   #[test]
   fn test_some () {

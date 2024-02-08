@@ -95,7 +95,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_order () {
+  fn order () {
     #[derive(Debug, Serialize, Clone)]
     enum SomeObjects {
       Map(HashMap<String, usize>),
