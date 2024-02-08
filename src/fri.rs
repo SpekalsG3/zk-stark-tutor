@@ -553,11 +553,38 @@ mod tests {
     let mut proof_stream = ProofStream::new();
 
     println!("proving...");
-    fri.prove(codeword, &mut proof_stream);
+    // todo: return proofstream
+    fri.prove(codeword.clone(), &mut proof_stream);
     println!("done");
 
     let mut points = vec![];
     println!("verifying...");
+    // todo: consume proof_stream and return points
     assert_eq!(fri.verify(&mut proof_stream, &mut points), Ok(()), "proof should be valid");
+
+    points
+        .iter()
+        .for_each(|(x, y)| {
+          assert_eq!(&polynomial.evaluate(&(omega ^ *x as u128)), y, "polynomial evaluates to wrong value");
+        });
+
+    // disturb then test for failure
+    // testing invalid codeword
+    let mut codeword = codeword;
+    for i in 0..degree/3 {
+      codeword
+          .get_mut(i)
+          .map(|i| {
+            *i = field.zero()
+          });
+    }
+    let mut proof_stream = ProofStream::new();
+
+    fri.prove(codeword, &mut proof_stream);
+
+    let mut points = vec![];
+    assert_ne!(fri.verify(&mut proof_stream, &mut points), Ok(()), "proof should fail, but is accepted ");
+
+    println!("success! \\o/");
   }
 }

@@ -131,10 +131,6 @@ impl<'a> Polynomial<'a> {
       }
 
       acc = acc + prod;
-
-      if i % 10 == 0 {
-        println!("interpolate {}/{}", i, domain.len());
-      }
     }
 
     acc
