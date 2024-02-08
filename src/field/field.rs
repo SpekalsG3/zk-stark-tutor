@@ -137,7 +137,7 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_mul () {
+  fn mul () {
     let field = Field::new(FIELD_PRIME);
 
     assert_eq!(field.mul_mod(2, 3), 6);
@@ -146,7 +146,7 @@ mod tests {
   }
 
   #[test]
-  fn test_primitive_nth_root () {
+  fn primitive_nth_root () {
     let field = Field::new(FIELD_PRIME);
 
     let n = 256;

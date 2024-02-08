@@ -89,13 +89,13 @@ mod tests {
   use super::*;
 
   #[test]
-  fn test_to_hex () {
+  fn to_hex () {
     let bytes = Bytes(vec![0x49,0x6e,0x20,0x74]);
     assert_eq!(bytes.to_hex(), String::from("496e2074"));
   }
 
   #[test]
-  fn test_from_str () {
+  fn from_str () {
     let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
     assert_eq!(bytes, "496e2074".into());
   }

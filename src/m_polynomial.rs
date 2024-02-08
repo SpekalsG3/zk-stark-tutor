@@ -64,19 +64,19 @@ impl<'a> MPolynomial<'a> {
 
   pub fn lift (polynomial: Polynomial<'a>, variable_index: usize) -> MPolynomial<'a> {
     let mut acc = MPolynomial::zero();
-    
+
     if polynomial.is_zero() {
       return acc;
     }
-    
+
     let field = polynomial.coefficients.first().unwrap().field;
     let variables = MPolynomial::variables(variable_index + 1, &field);
     let x = variables.last().unwrap();
-    
+
     for (i, el) in polynomial.coefficients.iter().enumerate() {
       acc = acc + MPolynomial::constant(*el) * (x.clone().bitxor(i as u128))
     }
-    
+
     acc
   }
 
@@ -274,9 +274,9 @@ impl<'a> BitXor<u128> for MPolynomial<'a> {
 mod tests {
   use crate::field::field::{Field, FIELD_PRIME};
   use super::*;
-  
+
   #[test]
-  fn test_is_zero () {
+  fn is_zero () {
     let field = Field::new(FIELD_PRIME);
 
     let m_poly_constant = MPolynomial::constant(FieldElement {

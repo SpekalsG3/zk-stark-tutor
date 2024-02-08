@@ -96,7 +96,7 @@ mod tests {
   }
 
   #[test]
-  fn test_some () {
+  fn some () {
     let mut s: BitIter<usize> = 11.into(); // 1011
 
     assert_eq!(s, BitIter(Some(3), 11));
@@ -109,7 +109,7 @@ mod tests {
   }
 
   #[test]
-  fn test_zero () {
+  fn zero () {
     let mut s: BitIter<usize> = 0.into(); // 0
 
     assert_eq!(s, BitIter(Some(0), 0));

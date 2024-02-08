@@ -107,19 +107,30 @@ mod tests {
   fn commit_one () {
     let field = Field::new(FIELD_PRIME);
     // Serialized to: `{"field":{"prime":270497897142230380135924736767050121217},"value":11}`
+
     let bytes = MerkleRoot::commit(&[FieldElement {
       field: &field,
       value: 11,
     }]);
     assert_eq!(
       bytes,
-      "aeb6f644b81a7b6cde7386b6eefa29952775e6e44ae3368e071884b7129293f3a3ff57d25768525faddd6ace5833b715892afefc470a8a4381b91b6901ae1bf3".into(),
+      "7aa7e388f8145d395ac616bb526eaa35b10069f49e2b36d7327157d1d4af360dfbbfea805aa7e405ed025ce5eadd56c27c40b92991727a5a16b51df5604ad006".into(),
+    );
+
+    let bytes = MerkleRoot::commit(&[FieldElement {
+      field: &field,
+      value: 5462,
+    }]);
+    assert_eq!(
+      bytes.to_hex(),
+      "1f069c52b4f26c7714dbd9babacbff542d1333190e3246dec47ee9f30bb649046406f3e0ae8f4cafd52bc1a1305061b451a8746ad3ad240c2524a82a3fcd28c0"
     );
   }
 
   #[test]
   fn commit_two () {
     let field = Field::new(FIELD_PRIME);
+
     let bytes = MerkleRoot::commit(&[FieldElement {
       field: &field,
       value: 5462,
@@ -129,8 +140,9 @@ mod tests {
     }]);
     assert_eq!(
       bytes,
-      "6d093f2284637958f1b19981b919fc327d8c35cd30a7411044be22de43bdcd356c76a8965dc80aeff44ad24da5c8fb0a73fd89446d9c2482dd16810600800351".into(),
+      "e79bb3f920912c56d27de11b3aaedf523d75877d7ec34d7b5819142ba69ce421e665b176fbbbd7b81e90dce61b1f629830eec87c3f7d0644c412af12f47548fe".into(),
     );
+
     let bytes = MerkleRoot::commit(&[FieldElement {
       field: &field,
       value: 652,
@@ -140,7 +152,7 @@ mod tests {
     }]);
     assert_eq!(
       bytes,
-      "9bec33e09623d5d30b78140f8094882f64bfc1fbcdd21225ba14d5a0e412b0d6c15e6eb0fe123b2428f5e1750db3bfc60d0910aab8960ede9c7fa5c31ab45f20".into(),
+      "9b70e42c4b3aea3efddaeda6c1883b38c8969e40ca17566d612156c0457961e7c30d811e2adefd941da7b5329d24ecf015dcffb3e39e379dc988564d588a2341".into(),
     );
   }
 
@@ -162,7 +174,7 @@ mod tests {
     }]);
     assert_eq!(
       bytes,
-      "885d536abb872bb162a959541296e86019ae020cd2b3d90ef1bac4259315680bea5052f7cc4bff2dec4c507641748738d5869b9ba2ff9880d7086f430443dfe5".into(),
+      "b36f5edab7ea2100fc298d9811bf1a745745282e80243e3a919e71ef6c30f690606b445557ad7843d3251c8e92b83b584d94b738334ffa7d88babd6e47471ac5".into(),
     );
   }
 
@@ -183,8 +195,8 @@ mod tests {
       value: 23409,
     }]);
     assert_eq!(bytes, vec![
-      "ee9496fd96f3774c94d176fd236055a25a79eff98bf043f12fd61fac7ba41e7dff681ab8fbe6a17fb76cbe4ead02705ee2b749641934e225d909dcd77aed9608".into(),
-      "9bec33e09623d5d30b78140f8094882f64bfc1fbcdd21225ba14d5a0e412b0d6c15e6eb0fe123b2428f5e1750db3bfc60d0910aab8960ede9c7fa5c31ab45f20".into(),
+      "1f069c52b4f26c7714dbd9babacbff542d1333190e3246dec47ee9f30bb649046406f3e0ae8f4cafd52bc1a1305061b451a8746ad3ad240c2524a82a3fcd28c0".into(),
+      "9b70e42c4b3aea3efddaeda6c1883b38c8969e40ca17566d612156c0457961e7c30d811e2adefd941da7b5329d24ecf015dcffb3e39e379dc988564d588a2341".into(),
     ]);
   }
 
@@ -192,11 +204,11 @@ mod tests {
   fn verify () {
     let field = Field::new(FIELD_PRIME);
     let result = MerkleRoot::verify(
-      &"885d536abb872bb162a959541296e86019ae020cd2b3d90ef1bac4259315680bea5052f7cc4bff2dec4c507641748738d5869b9ba2ff9880d7086f430443dfe5".into(),
+      &"b36f5edab7ea2100fc298d9811bf1a745745282e80243e3a919e71ef6c30f690606b445557ad7843d3251c8e92b83b584d94b738334ffa7d88babd6e47471ac5".into(),
       1,
       &vec![
-        "ee9496fd96f3774c94d176fd236055a25a79eff98bf043f12fd61fac7ba41e7dff681ab8fbe6a17fb76cbe4ead02705ee2b749641934e225d909dcd77aed9608".into(),
-        "9bec33e09623d5d30b78140f8094882f64bfc1fbcdd21225ba14d5a0e412b0d6c15e6eb0fe123b2428f5e1750db3bfc60d0910aab8960ede9c7fa5c31ab45f20".into(),
+        "1f069c52b4f26c7714dbd9babacbff542d1333190e3246dec47ee9f30bb649046406f3e0ae8f4cafd52bc1a1305061b451a8746ad3ad240c2524a82a3fcd28c0".into(),
+        "9b70e42c4b3aea3efddaeda6c1883b38c8969e40ca17566d612156c0457961e7c30d811e2adefd941da7b5329d24ecf015dcffb3e39e379dc988564d588a2341".into(),
       ],
       &FieldElement {
         field: &field,
@@ -205,11 +217,11 @@ mod tests {
     assert!(result, "Root has to be valid");
 
     let result = MerkleRoot::verify(
-      &"885d536abb872bb162a959541296e86019ae020cd2b3d90ef1bac4259315680bea5052f7cc4bff2dec4c507641748738d5869b9ba2ff9880d7086f430443dfe5".into(),
+      &"b36f5edab7ea2100fc298d9811bf1a745745282e80243e3a919e71ef6c30f690606b445557ad7843d3251c8e92b83b584d94b738334ffa7d88babd6e47471ac5".into(),
       1,
       &vec![
-        "ee9496fd96f3774c94d176fd236055a25a79eff98bf043f12fd61fac7ba41e7dff681ab8fbe6a17fb76cbe4ead02705ee2b749641934e225d909dcd77aed9608".into(),
-        "9bec33e09623d5d30b78140f8094882f64bfc1fbcdd21225ba14d5a0e412b0d6c15e6eb0fe123b2428f5e1750db3bfc60d0910aab8960ede9c7fa5c31ab45f20".into(),
+        "1f069c52b4f26c7714dbd9babacbff542d1333190e3246dec47ee9f30bb649046406f3e0ae8f4cafd52bc1a1305061b451a8746ad3ad240c2524a82a3fcd28c0".into(),
+        "9b70e42c4b3aea3efddaeda6c1883b38c8969e40ca17566d612156c0457961e7c30d811e2adefd941da7b5329d24ecf015dcffb3e39e379dc988564d588a2341".into(),
       ],
       &FieldElement {
         field: &field,
@@ -218,11 +230,11 @@ mod tests {
     assert!(!result, "Root has to be invalid because element is invalid");
 
     let result = MerkleRoot::verify(
-      &"885d536abb872bb162a959541296e86019ae020cd2b3d90ef1bac4259315680bea5052f7cc4bff2dec4c507641748738d5869b9ba2ff9880d7086f430443dfe5".into(),
+      &"b36f5edab7ea2100fc298d9811bf1a745745282e80243e3a919e71ef6c30f690606b445557ad7843d3251c8e92b83b584d94b738334ffa7d88babd6e47471ac5".into(),
       0,
       &vec![
-        "ee9496fd96f3774c94d176fd236055a25a79eff98bf043f12fd61fac7ba41e7dff681ab8fbe6a17fb76cbe4ead02705ee2b749641934e225d909dcd77aed9608".into(),
-        "9bec33e09623d5d30b78140f8094882f64bfc1fbcdd21225ba14d5a0e412b0d6c15e6eb0fe123b2428f5e1750db3bfc60d0910aab8960ede9c7fa5c31ab45f20".into(),
+        "1f069c52b4f26c7714dbd9babacbff542d1333190e3246dec47ee9f30bb649046406f3e0ae8f4cafd52bc1a1305061b451a8746ad3ad240c2524a82a3fcd28c0".into(),
+        "9b70e42c4b3aea3efddaeda6c1883b38c8969e40ca17566d612156c0457961e7c30d811e2adefd941da7b5329d24ecf015dcffb3e39e379dc988564d588a2341".into(),
       ],
       &FieldElement {
         field: &field,

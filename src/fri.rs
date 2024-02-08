@@ -507,7 +507,7 @@ mod tests {
   }
 
   #[test]
-  fn test_verify () {
+  fn verify () {
     // constants
     let field = Field::new(FIELD_PRIME);
     let degree = 63; // power of 2

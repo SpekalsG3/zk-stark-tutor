@@ -74,7 +74,7 @@ mod tests {
   }
 
   #[test]
-  fn test_u_xgcd_multiplicative_inverse () {
+  fn u_xgcd_multiplicative_inverse () {
     assert_eq!(multiplicative_inverse( 6, 2, 23), 3);
     assert_eq!(multiplicative_inverse(12, 4, 23), 3);
     assert_eq!(multiplicative_inverse( 8, 8, 23), 1);
