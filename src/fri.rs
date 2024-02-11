@@ -211,8 +211,8 @@ impl<'a> FRI<'a> {
         })
         .collect();
 
-      omega = omega ^ 2;
-      offset = offset ^ 2;
+      omega = omega ^ 2_usize;
+      offset = offset ^ 2_usize;
     }
 
     // send last codeword
@@ -341,8 +341,8 @@ impl<'a> FRI<'a> {
     let mut last_omega = omega;
     let mut last_offset = offset;
     for _ in 0..num_rounds-1 {
-      last_omega = last_omega ^ 2;
-      last_offset = last_offset ^ 2;
+      last_omega = last_omega ^ 2_usize;
+      last_offset = last_offset ^ 2_usize;
     }
 
     if last_omega.inverse() != (last_omega ^ (last_codeword.len() - 1)) {
@@ -468,8 +468,8 @@ impl<'a> FRI<'a> {
         }
       }
 
-      omega = omega ^ 2;
-      offset = offset ^ 2;
+      omega = omega ^ 2_usize;
+      offset = offset ^ 2_usize;
     }
 
     Ok(())

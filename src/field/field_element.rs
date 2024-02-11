@@ -117,6 +117,25 @@ impl<'a> ToString for FieldElement<'a> {
 }
 
 // todo tutorial uses `BitXor` for power, replaces later
+impl<'a> BitXor<u128> for FieldElement<'a> {
+  type Output = Self;
+
+  fn bitxor (self, exponent: u128) -> Self::Output {
+    let mut acc = self.field.one();
+
+    let iter: BitIter<u128> = exponent.into();
+    for i in (0..iter.count()).rev() {
+      acc = acc * acc;
+      if ((1 << i) & exponent) != 0 {
+        acc = acc * self;
+      }
+    }
+
+    acc
+  }
+}
+
+// todo tutorial uses `BitXor` for power, replaces later
 impl<'a> BitXor<usize> for FieldElement<'a> {
   type Output = Self;
 

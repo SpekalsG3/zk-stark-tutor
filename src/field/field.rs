@@ -39,8 +39,8 @@ impl<'a> Field {
 
     let mut order = 1 << 119;
     while order != n {
-      root = root ^ 2;
-      order = order / 2;
+      root = root ^ 2_u128;
+      order = order / 2_u128;
     }
 
     root
