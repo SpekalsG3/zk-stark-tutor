@@ -1,4 +1,7 @@
-// original from tutorial - overflow when working close to boundary
+use std::ops::Neg;
+
+// original from tutorial
+#[deprecated(note="overflow when working close to boundary, use `u_xgcd`")]
 pub fn xgcd (a: u128, b: u128) -> (i128, i128, u128) {
   let mut r = (a, b);
   let mut s = (1_i128, 0_i128);
@@ -7,8 +10,8 @@ pub fn xgcd (a: u128, b: u128) -> (i128, i128, u128) {
   while r.1 != 0 {
     let q = r.0 / r.1;
     r = (r.1, r.0 - q * r.1);
-    s = (s.1, s.0 - (q as i128 * s.1) as i128);
-    t = (t.1, t.0 - (q as i128 * t.1) as i128);
+    s = (s.1, s.0 - q as i128 * s.1);
+    t = (t.1, t.0 - q as i128 * t.1);
   }
 
   (s.0, t.0, r.0) // a, b, g
@@ -47,7 +50,7 @@ pub fn u_xgcd (a: u128, b: u128) -> (i128, i128, u128) {
 pub fn multiplicative_inverse (x: u128, y: u128, m: u128) -> u128 {
   let (a, _, _) = u_xgcd(y, m);
   if a < 0 {
-    (m - x) * (-a as u128) % m
+    (m - x) * (a.neg() as u128) % m
   } else {
     x * (a as u128) % m
   }
@@ -55,9 +58,8 @@ pub fn multiplicative_inverse (x: u128, y: u128, m: u128) -> u128 {
 
 #[cfg(test)]
 mod tests {
+  use crate::field::field::FIELD_PRIME;
   use super::*;
-
-  const BIG_PRIME: u128 = 1 + 407 * (1 << 119);
 
   #[test]
   fn test_xgcd () {
@@ -70,7 +72,7 @@ mod tests {
   fn test_u_xgcd () {
     assert_eq!(u_xgcd(10, 5), (0, 1, 5));
     assert_eq!(u_xgcd(240, 46), (-9, 47, 2));
-    assert_eq!(u_xgcd(3, BIG_PRIME), (90165965714076793378641578922350040406, -1, 1));
+    assert_eq!(u_xgcd(3, FIELD_PRIME), (90165965714076793378641578922350040406, -1, 1));
   }
 
   #[test]

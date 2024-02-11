@@ -8,3 +8,16 @@ pub fn gcd (a: usize, b: usize) -> usize {
   }
   a
 }
+
+#[cfg(test)]
+mod tests {
+  use crate::field::field::FIELD_PRIME;
+  use crate::utils::gcd::gcd;
+
+  #[test]
+  fn test () {
+    assert_eq!(gcd(10, 5), 5);
+    assert_eq!(gcd(240, 46), 2);
+    assert_eq!(gcd(3, FIELD_PRIME as usize), 1);
+  }
+}

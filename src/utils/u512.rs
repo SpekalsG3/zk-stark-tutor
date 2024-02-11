@@ -37,10 +37,7 @@ impl Shl<u32> for U512 {
         let target_i = i - overflow_target - 1;
 
         if overflows[target_i] == 0 {
-          overflows[target_i] = match bit_i.checked_shr(128 - shift) {
-            Some(u) => u,
-            None => 0,
-          };
+          overflows[target_i] = bit_i.checked_shr(128 - shift).unwrap_or(0);
         }
       }
 
@@ -49,19 +46,13 @@ impl Shl<u32> for U512 {
           let target_i = i - overflow_target;
 
           if overflows[target_i] == 0 {
-            overflows[target_i] = match bit_i.checked_shl(shift) {
-              Some(u) => u,
-              None => 0,
-            };
+            overflows[target_i] = bit_i.checked_shl(shift).unwrap_or(0);
           }
         }
 
         *bit_i = overflows[i];
       } else {
-        *bit_i = overflows[i] + match bit_i.checked_shl(shift) {
-          Some(u) => u,
-          None => 0,
-        };
+        *bit_i = overflows[i] + bit_i.checked_shl(shift).unwrap_or(0);
       }
     }
 

@@ -100,7 +100,7 @@ impl<'a> FRI<'a> {
   pub fn eval_domain (&self) -> Vec<FieldElement<'a>> {
     (0..self.domain_length)
       .map(|i| {
-        self.offset * (self.omega.clone() ^ i as u128)
+        self.offset * (self.omega.clone() ^ i)
       })
       .collect()
   }
@@ -204,7 +204,7 @@ impl<'a> FRI<'a> {
       let codeword_half_len = codeword.len() / 2;
       codeword = (0..codeword_half_len)
         .map(|i| {
-          let alpha_by_offset = alpha / (offset * (omega ^ i as u128));
+          let alpha_by_offset = alpha / (offset * (omega ^ i));
           let first_half = (one + alpha_by_offset) * *codeword.get(i).unwrap();
           let second_half = (one - alpha_by_offset) * *codeword.get(codeword_half_len + i).unwrap();
           two_inv * (first_half + second_half)
@@ -345,11 +345,11 @@ impl<'a> FRI<'a> {
       last_offset = last_offset ^ 2;
     }
 
-    if last_omega.inverse() != (last_omega ^ (last_codeword.len() as u128 - 1)) {
+    if last_omega.inverse() != (last_omega ^ (last_codeword.len() - 1)) {
       return Err("omega does not have the right order".to_string());
     }
 
-    let last_domain = (0..last_codeword.len() as u128)
+    let last_domain = (0..last_codeword.len())
       .map(|i| last_offset * (last_omega ^ i))
       .collect::<Vec<_>>();
     let poly = Polynomial::interpolate_domain(&last_domain, &last_codeword);
@@ -422,8 +422,8 @@ impl<'a> FRI<'a> {
         }
 
         // # colinearity check
-        let ax = offset * (omega ^ *indices_a.get(s).unwrap() as u128);
-        let bx = offset * (omega ^ *indices_b.get(s).unwrap() as u128);
+        let ax = offset * (omega ^ *indices_a.get(s).unwrap());
+        let bx = offset * (omega ^ *indices_b.get(s).unwrap());
         let cx = alphas[r];
         if !Polynomial::test_colinearity(vec![
           (ax, ay),
@@ -544,7 +544,7 @@ mod tests {
         })
         .collect()
     );
-    let domain = (0..codeword_initial_length as u128)
+    let domain = (0..codeword_initial_length)
       .map(|i| omega ^ i)
       .collect::<Vec<_>>();
 
@@ -565,7 +565,7 @@ mod tests {
     points
         .iter()
         .for_each(|(x, y)| {
-          assert_eq!(&polynomial.evaluate(&(omega ^ *x as u128)), y, "polynomial evaluates to wrong value");
+          assert_eq!(&polynomial.evaluate(&(omega ^ *x)), y, "polynomial evaluates to wrong value");
         });
 
     // disturb then test for failure
