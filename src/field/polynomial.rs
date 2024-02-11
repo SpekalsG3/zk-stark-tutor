@@ -166,7 +166,7 @@ impl<'a> Polynomial<'a> {
     }
   }
 
-  pub(super) fn divide (numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Option<(Polynomial<'a>, Polynomial<'a>)> {
+  pub fn divide_with_rem(numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Option<(Polynomial<'a>, Polynomial<'a>)> {
     let denom_degree = denominator.degree();
     if denom_degree.is_none() {
       return None;
@@ -295,7 +295,7 @@ impl<'a> Mul for Polynomial<'a> {
 impl<'a> Div for Polynomial<'a> {
   type Output = Self;
   fn div (self, rhs: Self) -> Self::Output {
-    let res = Polynomial::divide(self, rhs);
+    let res = Polynomial::divide_with_rem(self, rhs);
     assert!(res.is_some(), "Denominator is empty or zero");
 
     let (q, r) = res.unwrap();
@@ -308,7 +308,7 @@ impl<'a> Div for Polynomial<'a> {
 impl<'a> Rem for Polynomial<'a> {
   type Output = Self;
   fn rem (self, rhs: Self) -> Self::Output {
-    let res = Polynomial::divide(self, rhs);
+    let res = Polynomial::divide_with_rem(self, rhs);
     assert!(res.is_some(), "Denominator is empty or zero");
 
     let (_, r) = res.unwrap();
@@ -503,7 +503,7 @@ mod tests {
         },
       ]
     };
-    assert_eq!(Polynomial::divide(nomin, denom), Some((quotient, remainder)));
+    assert_eq!(Polynomial::divide_with_rem(nomin, denom), Some((quotient, remainder)));
   }
 
   #[test]

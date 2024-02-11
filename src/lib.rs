@@ -14,6 +14,6 @@ pub mod utils {
     pub mod xgcd;
 }
 pub mod fri;
-// pub mod m_polynomial;
+pub mod m_polynomial;
 pub mod merkle_root;
 pub mod proof_stream;

@@ -175,8 +175,8 @@ mod tests {
       });
     assert_ne!(powered, 1, "omega is not primitive");
 
-    assert_eq!(z ^ (1 << n_log), field.one(), "omega not nth root of unity");
-    assert_ne!(z ^ (1 << (n_log - 1)), field.one(), "omega not primitive");
+    assert_eq!(z ^ (1_usize << n_log), field.one(), "omega not nth root of unity");
+    assert_ne!(z ^ (1_usize << (n_log - 1)), field.one(), "omega not primitive");
   }
 
   #[test]

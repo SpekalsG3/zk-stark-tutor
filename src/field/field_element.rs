@@ -301,13 +301,13 @@ mod tests {
   fn pow () {
     let field = Field::new(FIELD_PRIME);
 
-    assert_eq!(FieldElement::new(&field, 6534789852937546098) ^ 501209126122, FieldElement::new(&field, 256557788041265930815463337858691703671));
+    assert_eq!(FieldElement::new(&field, 6534789852937546098) ^ 501209126122_usize, FieldElement::new(&field, 256557788041265930815463337858691703671));
 
     let el = FieldElement::new(&field, 15);
-    assert_eq!(el ^ 4, FieldElement::new(&field, 50625));
+    assert_eq!(el ^ 4_usize, FieldElement::new(&field, 50625));
 
     let el = FieldElement::new(&field, 270497897142230380135);
-    assert_eq!(el ^ 8, FieldElement::new(&field, 79016866124691016201920330826259043252));
+    assert_eq!(el ^ 8_usize, FieldElement::new(&field, 79016866124691016201920330826259043252));
   }
 
   // fn bitxor () {
