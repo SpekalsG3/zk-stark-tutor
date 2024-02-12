@@ -92,22 +92,22 @@ impl<'a> Polynomial<'a> {
       .collect()
   }
 
-  // pub fn scale (self, factor: u128) -> Polynomial<'a> {
-  //   // todo need an example of calculation
-  //   Polynomial::new(
-  //     self
-  //       .coefficients
-  //       .iter()
-  //       .enumerate()
-  //       .map(|(i, el)| {
-  //         FieldElement {
-  //           field: el.field,
-  //           value: el.field.mul_mod(factor ^ i as u128, el.value),
-  //         }
-  //       })
-  //       .collect()
-  //   )
-  // }
+  pub fn scale (&self, factor: FieldElement) -> Polynomial<'a> {
+    Polynomial::new(
+      self
+        .coefficients
+        .iter()
+        .enumerate()
+        .map(|(i, coef)| {
+          let pow = factor ^ i;
+          FieldElement {
+            field: coef.field,
+            value: coef.field.mul_mod(pow.value, coef.value),
+          }
+        })
+        .collect()
+    )
+  }
 
   pub fn interpolate_domain <'m>(domain: &[FieldElement<'m>], values: &[FieldElement<'m>]) -> Polynomial<'m> {
     assert_eq!(domain.len(), values.len(), "number of elements in domain does not match number of values");
@@ -136,17 +136,16 @@ impl<'a> Polynomial<'a> {
     acc
   }
 
-  // pub fn zerofier_domain <'m>(domain: Vec<FieldElement<'m>>) -> Polynomial<'m> {
-  //   // todo need an example of calculation
-  //   let field = domain.first().unwrap().field;
-  //   let x = Polynomial::new(vec![field.zero(), field.one()]);
-  //
-  //   domain
-  //     .into_iter()
-  //     .fold(Polynomial::new(vec![field.one()]), |acc, d| {
-  //       acc * (x.clone() - Polynomial::new(vec![d]))
-  //     })
-  // }
+  pub fn zerofier_domain <'m>(domain: &[FieldElement<'m>]) -> Polynomial<'m> {
+    let field = domain.first().unwrap().field;
+    let x = Polynomial::new(vec![field.zero(), field.one()]);
+
+    domain
+      .into_iter()
+      .fold(Polynomial::new(vec![field.one()]), |acc, d| {
+        acc * (x.clone() - Polynomial::new(vec![*d]))
+      })
+  }
 
   pub fn test_colinearity <'m>(points: Vec<(FieldElement<'m>, FieldElement<'m>)>) -> bool {
     // todo need an example of calculation
@@ -618,6 +617,47 @@ mod tests {
         },
       ]
     })
+  }
+
+  #[test]
+  fn scale () {
+    let field = Field::new(FIELD_PRIME);
+
+    let poly = Polynomial::new(vec![
+      FieldElement::new(&field, 10),
+      FieldElement::new(&field, 345),
+      FieldElement::new(&field, 0),
+      FieldElement::new(&field, 65),
+      FieldElement::new(&field, 74),
+      FieldElement::new(&field, 5),
+    ]);
+    let poly_res = Polynomial::new(vec![
+      FieldElement::new(&field, 10),
+      FieldElement::new(&field, 1380),
+      FieldElement::new(&field, 0),
+      FieldElement::new(&field, 4160),
+      FieldElement::new(&field, 18944),
+      FieldElement::new(&field, 5120),
+    ]);
+    assert_eq!(poly.scale(FieldElement::new(&field, 4)), poly_res);
+  }
+
+  #[test]
+  fn zerofier () {
+    let field = Field::new(FIELD_PRIME);
+
+    let domain = vec![
+      FieldElement::new(&field, 10),
+      FieldElement::new(&field, 345),
+      FieldElement::new(&field, 0),
+      FieldElement::new(&field, 65),
+      FieldElement::new(&field, 74),
+      FieldElement::new(&field, 5),
+    ];
+    let zerofier = Polynomial::zerofier_domain(&domain);
+    for d in domain {
+      assert_eq!(zerofier.evaluate(&d), field.zero())
+    }
   }
 
   // todo

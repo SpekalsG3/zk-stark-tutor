@@ -266,40 +266,39 @@ impl<'a> Mul for MPolynomial<'a> {
   }
 }
 
-// // todo: is it power? replace with `pow` method
-// // todo: add test
-// impl<'a> BitXor<u128> for MPolynomial<'a> {
-//   type Output = Self;
-//   fn bitxor (self, rhs: u128) -> Self::Output {
-//     if self.is_zero() {
-//       return MPolynomial::zero();
-//     }
-//
-//     let field = self.dictionary
-//       .values()
-//       .next()
-//       .unwrap()
-//       .field;
-//     let num_variables = self.dictionary
-//       .keys()
-//       .next()
-//       .unwrap()
-//       .len();
-//     let exp = vec![0; num_variables];
-//
-//     let mut dict = MPolynomialKey::new();
-//     dict.insert(exp, field.one());
-//
-//     let iter: BitIter<u128> = rhs.into();
-//     iter.fold(MPolynomial::new(dict), |acc, b| {
-//       let mut acc = acc.clone() * acc;
-//       if b {
-//         acc = acc * self.clone()
-//       }
-//       acc
-//     })
-//   }
-// }
+// todo: tutorial uses bitxor operator as power - replace with `pow` method
+impl<'a> BitXor<u128> for MPolynomial<'a> {
+  type Output = Self;
+  fn bitxor (self, rhs: u128) -> Self::Output {
+    if self.is_zero() {
+      return MPolynomial::zero();
+    }
+
+    let field = self.dictionary
+      .values()
+      .next()
+      .unwrap()
+      .field;
+    let num_variables = self.dictionary
+      .keys()
+      .next()
+      .unwrap()
+      .len();
+    let exp = vec![0; num_variables];
+
+    let mut dict = MPolynomialKey::new();
+    dict.insert(exp, field.one());
+
+    let iter: BitIter<u128> = rhs.into();
+    iter.fold(MPolynomial::new(dict), |acc, b| {
+      let mut acc = acc.clone() * acc;
+      if b {
+        acc = acc * self.clone()
+      }
+      acc
+    })
+  }
+}
 
 #[cfg(test)]
 mod tests {
@@ -528,6 +527,35 @@ mod tests {
     ;
 
     assert_eq!(mpoly.evaluate_symbolic(&polys), poly_res);
+  }
+
+  #[test]
+  fn pow () {
+    let field = Field::new(FIELD_PRIME);
+
+    let mut dict = HashMap::new();
+    dict.insert(vec![1,2,5], FieldElement::new(&field, 3));
+    dict.insert(vec![5,3,4], FieldElement::new(&field, 4));
+    let mpoly = MPolynomial::new(dict);
+
+    // (3  * x   * y^2 * z^5  + 4  * x^5  * y^3 * z^4) ** 3
+    // 1. (3  * x   * y^2 * z^5  + 4  * x^5  * y^3 * z^4)
+    // 2. (9  * x^2 * y^4 * z^10 + 24 * x^6  * y^5 * z^9  + 16 * x^10 * y^6 * z^8 )
+    //    (27 * x^3 * y^6 * z^15 + 72 * x^7  * y^7 * z^14 + 48 * x^11 * y^8 * z^13) +
+    //    (36 * x^7 * y^7 * z^14 + 96 * x^11 * y^8 * z^13 + 64 * x^15 * y^9 * z^12)
+    //
+    // + 144 * x^11 * y^8 * z^13
+    // + 27  * x^3  * y^6 * z^15
+    // + 108 * x^7  * y^7 * z^14
+    // + 64  * x^15 * y^9 * z^12
+
+    let mut dict = HashMap::new();
+    dict.insert(vec![11, 8, 13], FieldElement::new(&field, 144));
+    dict.insert(vec![ 3, 6, 15], FieldElement::new(&field,  27));
+    dict.insert(vec![ 7, 7, 14], FieldElement::new(&field, 108));
+    dict.insert(vec![15, 9, 12], FieldElement::new(&field,  64));
+
+    assert_eq!(mpoly ^ 3, MPolynomial::new(dict));
   }
 }
 
