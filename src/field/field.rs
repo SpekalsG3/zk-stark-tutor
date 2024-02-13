@@ -60,7 +60,7 @@ impl<'a> Field {
     }
   }
 
-  pub fn sample (&'a self, bytes: &Bytes) -> FieldElement<'a> {
+  pub fn sample (&self, bytes: &Bytes) -> FieldElement {
     let res = bytes
       .iter()
       .fold(U512::new(), |acc, b| {

@@ -1,62 +1,13 @@
-use std::fmt::{Display, Formatter};
-use serde::Serialize;
+use std::fmt::Display;
 use crate::crypto::blake2b512::blake2b512;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::merkle_root::MerkleRoot;
+use crate::proof_stream::PROOF_BYTES;
+use crate::stark::{ProofStreamEnum, StarkProofStream};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
-
-const PROOF_BYTES: usize = 32;
-
-#[derive(Debug, Clone, Serialize)]
-pub enum ProofStreamEnum<'a> {
-  Root(Bytes),
-  Codeword(Vec<FieldElement<'a>>),
-  Path(Vec<Bytes>),
-  Leafs((FieldElement<'a>, FieldElement<'a>, FieldElement<'a>)),
-}
-
-impl Display for ProofStreamEnum<'_> {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      ProofStreamEnum::Root(r) => {
-        write!(f, "{}", r.to_hex())
-      }
-      ProofStreamEnum::Codeword(c) => {
-        let mut iter = c.iter();
-        if let Some(o) = iter.next() {
-          write!(f, "[{}", o.value)?;
-        }
-        for o in iter {
-          write!(f, ",{}", o.value)?;
-        }
-        write!(f, "]")
-      }
-      ProofStreamEnum::Path(p) => {
-        let mut iter = p.iter();
-        if let Some(o) = iter.next() {
-          write!(f, "[{}", o.to_hex())?;
-        }
-        for o in iter {
-          write!(f, ",{}", o.to_hex())?;
-        }
-        write!(f, "]")
-      }
-      ProofStreamEnum::Leafs(l) => {
-        write!(f,
-               "[{},{},{}]",
-               l.0.value,
-               l.1.value,
-               l.2.value,
-        )
-      }
-    }
-  }
-}
-
-type ProofStream<'a> = crate::proof_stream::ProofStream<ProofStreamEnum<'a>>;
 
 pub struct FRI<'a> {
   omega: FieldElement<'a>,
@@ -162,8 +113,8 @@ impl<'a> FRI<'a> {
 
   pub fn commit (
     &self,
-    mut codeword: Vec<FieldElement<'a>>,
-    proof_stream: &mut ProofStream<'a>,
+    codeword: &Vec<FieldElement<'a>>,
+    proof_stream: &mut StarkProofStream<'a>,
   ) -> Vec<Vec<FieldElement<'a>>> {
     let one = self.field.one();
     let two_inv = FieldElement::new(self.field, 2).inverse();
@@ -173,6 +124,7 @@ impl<'a> FRI<'a> {
     let num_rounds = self.num_rounds();
 
     let mut codewords = Vec::with_capacity(num_rounds);
+    let mut codeword = codeword.to_vec();
 
     for r in 0..num_rounds {
       /*
@@ -205,8 +157,8 @@ impl<'a> FRI<'a> {
       codeword = (0..codeword_half_len)
         .map(|i| {
           let alpha_by_offset = alpha / (offset * (omega ^ i));
-          let first_half = (one + alpha_by_offset) * *codeword.get(i).unwrap();
-          let second_half = (one - alpha_by_offset) * *codeword.get(codeword_half_len + i).unwrap();
+          let first_half = (one + alpha_by_offset) * codeword[i].clone();
+          let second_half = (one - alpha_by_offset) * codeword[codeword_half_len + i].clone();
           two_inv * (first_half + second_half)
         })
         .collect();
@@ -229,7 +181,7 @@ impl<'a> FRI<'a> {
     codeword_current: &[FieldElement<'a>],
     codeword_next: &[FieldElement<'a>],
     indices_c: &[usize],
-    proof_stream: &mut ProofStream<'a>,
+    proof_stream: &mut StarkProofStream<'a>,
   ) -> Vec<usize> {
     // infer a and b indices
     let indices_a = indices_c.to_vec();
@@ -262,8 +214,8 @@ impl<'a> FRI<'a> {
 
   pub fn prove (
     &self,
-    codeword: Vec<FieldElement<'a>>,
-    proof_stream: &mut ProofStream<'a>,
+    codeword: &Vec<FieldElement<'a>>,
+    proof_stream: &mut StarkProofStream<'a>,
   ) -> Vec<usize> {
     assert_eq!(
       self.domain_length,
@@ -302,7 +254,7 @@ impl<'a> FRI<'a> {
 
   pub fn verify (
     &self,
-    proof_stream: &mut ProofStream<'a>,
+    proof_stream: &mut StarkProofStream<'a>,
     polynomial_values: &mut Vec<(usize, FieldElement<'a>)>,
   ) -> Result<(), String> {
     let mut omega = self.omega;
@@ -421,7 +373,7 @@ impl<'a> FRI<'a> {
           polynomial_values.push((*indices_b.get(s).unwrap(), by));
         }
 
-        // # colinearity check
+        // colinearity check
         let ax = offset * (omega ^ *indices_a.get(s).unwrap());
         let bx = offset * (omega ^ *indices_b.get(s).unwrap());
         let cx = alphas[r];
@@ -550,11 +502,11 @@ mod tests {
 
     let codeword = polynomial.evaluate_domain(&domain);
 
-    let mut proof_stream = ProofStream::new();
+    let mut proof_stream = StarkProofStream::new();
 
     println!("proving...");
     // todo: return proofstream
-    fri.prove(codeword.clone(), &mut proof_stream);
+    fri.prove(&codeword, &mut proof_stream);
     println!("done");
 
     let mut points = vec![];
@@ -568,8 +520,9 @@ mod tests {
           assert_eq!(&polynomial.evaluate(&(omega ^ *x)), y, "polynomial evaluates to wrong value");
         });
 
+    println!("testing invalid codeword");
+
     // disturb then test for failure
-    // testing invalid codeword
     let mut codeword = codeword;
     for i in 0..degree/3 {
       codeword
@@ -578,9 +531,9 @@ mod tests {
             *i = field.zero()
           });
     }
-    let mut proof_stream = ProofStream::new();
+    let mut proof_stream = StarkProofStream::new();
 
-    fri.prove(codeword, &mut proof_stream);
+    fri.prove(&codeword, &mut proof_stream);
 
     let mut points = vec![];
     assert_ne!(fri.verify(&mut proof_stream, &mut points), Ok(()), "proof should fail, but is accepted ");

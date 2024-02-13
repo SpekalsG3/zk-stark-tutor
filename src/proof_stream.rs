@@ -4,6 +4,8 @@ use serde::{Serialize};
 use sha3::{digest::{Update, ExtendableOutput}, Shake256};
 use crate::utils::bytes::Bytes;
 
+pub const PROOF_BYTES: usize = 32;
+
 #[derive(Debug)]
 pub struct ProofStream<T> {
   objects: Vec<T>,
@@ -17,12 +19,12 @@ impl<T> Display for ProofStream<T>
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut iter = self.objects.iter();
     if let Some(o) = iter.next() {
-      write!(f, "{}", o)?;
+      write!(f, "[{}", o)?;
     }
     for o in iter {
       write!(f, ",{}", o)?;
     }
-    Ok(())
+    write!(f, "]")
   }
 }
 
@@ -53,11 +55,15 @@ impl<T> ProofStream<T>
     obj
   }
 
+  pub fn serialize (&self) -> String {
+    serde_json::to_string(&self.objects).unwrap()
+  }
+
   // get challenge
   pub fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
     let mut hasher = Shake256::default();
 
-    let str = serde_json::to_string(&self.objects).unwrap();
+    let str = self.serialize();
     hasher.update(str.as_bytes());
 
     let mut buf = vec![0u8; num_bytes];

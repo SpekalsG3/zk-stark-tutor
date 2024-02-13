@@ -18,7 +18,7 @@ pub struct Iter<'a> {
 
 impl Bytes {
   pub fn new (buf: Vec<u8>) -> Self {
-    Self (buf.to_vec())
+    Self (buf)
   }
 
   pub fn to_hex (&self) -> String {
