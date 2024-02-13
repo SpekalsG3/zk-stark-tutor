@@ -1,15 +1,8 @@
 use std::ops::Add;
-use serde::{Serialize, Serializer};
+use crate::utils::stringify::Stringify;
 
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Bytes(Vec<u8>);
-
-impl Serialize for Bytes {
-  // todo tests
-  fn serialize<S> (&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    self.to_hex().serialize(serializer)
-  }
-}
 
 pub struct Iter<'a> {
   i: usize,
@@ -37,6 +30,14 @@ impl Bytes {
       i: 0,
       bytes: self,
     }
+  }
+
+  pub fn stringify (&self) -> String {
+    format!("\"{}\"", self.to_hex())
+  }
+
+  pub fn unstringify (str: &str) -> Self {
+    Self::from(&str[1..str.len()-1])
   }
 }
 

@@ -1,11 +1,10 @@
-use std::fmt::Display;
 use crate::crypto::blake2b512::blake2b512;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::PROOF_BYTES;
-use crate::stark::{ProofStreamEnum, StarkProofStream};
+use crate::stark::{StarkProofStreamEnum, StarkProofStream};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 
@@ -139,7 +138,7 @@ impl<'a> FRI<'a> {
 
       // compute and send Merkle root
       let root = MerkleRoot::commit(&codeword);
-      proof_stream.push(ProofStreamEnum::Root(root));
+      proof_stream.push(StarkProofStreamEnum::Root(root));
 
       // prepare next round, if necessary
       if r == num_rounds - 1 {
@@ -168,7 +167,7 @@ impl<'a> FRI<'a> {
     }
 
     // send last codeword
-    proof_stream.push(ProofStreamEnum::Codeword(codeword.clone()));
+    proof_stream.push(StarkProofStreamEnum::Codeword(codeword.clone()));
 
     // collect last codeword too
     codewords.push(codeword);
@@ -192,7 +191,7 @@ impl<'a> FRI<'a> {
 
     // reveal leafs
     for s in 0..self.num_colinearity_tests {
-      proof_stream.push(ProofStreamEnum::Leafs((
+      proof_stream.push(StarkProofStreamEnum::Leafs((
         *codeword_current.get(*indices_a.get(s).unwrap()).unwrap(),
         *codeword_current.get(*indices_b.get(s).unwrap()).unwrap(),
         *codeword_next.get(*indices_c.get(s).unwrap()).unwrap(),
@@ -201,9 +200,9 @@ impl<'a> FRI<'a> {
 
     // reveal auth path
     for s in 0..self.num_colinearity_tests {
-      proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_a.get(s).unwrap(), codeword_current)));
-      proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_b.get(s).unwrap(), codeword_current)));
-      proof_stream.push(ProofStreamEnum::Path(MerkleRoot::open(*indices_c.get(s).unwrap(), codeword_next)));
+      proof_stream.push(StarkProofStreamEnum::Path(MerkleRoot::open(*indices_a.get(s).unwrap(), codeword_current)));
+      proof_stream.push(StarkProofStreamEnum::Path(MerkleRoot::open(*indices_b.get(s).unwrap(), codeword_current)));
+      proof_stream.push(StarkProofStreamEnum::Path(MerkleRoot::open(*indices_c.get(s).unwrap(), codeword_next)));
     }
 
     let mut indices_ab = indices_a;
@@ -267,7 +266,7 @@ impl<'a> FRI<'a> {
 
     for r in 0..num_rounds {
       let root = match proof_stream.pull() {
-        Some(ProofStreamEnum::Root(root)) => root,
+        Some(StarkProofStreamEnum::Root(root)) => root,
         _ => {
           return Err(format!("expected {r}th item in proof stream to be root"));
         }
@@ -278,7 +277,7 @@ impl<'a> FRI<'a> {
     }
 
     let last_codeword = match proof_stream.pull() {
-      Some(ProofStreamEnum::Codeword(c)) => c,
+      Some(StarkProofStreamEnum::Codeword(c)) => c,
       _ => {
         return Err(format!("expected {}th item in proof stream to be a codeword", num_rounds-1));
       }
@@ -325,14 +324,12 @@ impl<'a> FRI<'a> {
       }
     }
 
-    println!("sample_indices...");
     let top_level_indices = self.sample_indices(
       proof_stream.fiat_shamir_verifier(PROOF_BYTES),
       self.domain_length >> 1,
       self.domain_length >> (num_rounds - 1),
       self.num_colinearity_tests,
     );
-    println!("done");
 
     for r in 0..num_rounds-1 {
       let indices_c = top_level_indices
@@ -355,7 +352,7 @@ impl<'a> FRI<'a> {
       let mut cc = vec![];
       for s in 0..self.num_colinearity_tests {
         let (ay, by, cy) = match proof_stream.pull() {
-          Some(ProofStreamEnum::Leafs(l)) => l,
+          Some(StarkProofStreamEnum::Leafs(l)) => l,
           _ => {
             return Err(format!(
               "expected {}th item in proof stream to be a leaf",
@@ -390,7 +387,7 @@ impl<'a> FRI<'a> {
         let nth = num_rounds + r * self.num_colinearity_tests * 4 + self.num_colinearity_tests + 3 * i;
 
         let path = match proof_stream.pull() {
-          Some(ProofStreamEnum::Path(p)) => p,
+          Some(StarkProofStreamEnum::Path(p)) => p,
           _ => {
             return Err(format!("expected {}th item in proof stream to be a path", nth + 1));
           }
@@ -400,7 +397,7 @@ impl<'a> FRI<'a> {
         }
 
         let path = match proof_stream.pull() {
-          Some(ProofStreamEnum::Path(p)) => p,
+          Some(StarkProofStreamEnum::Path(p)) => p,
           _ => {
             return Err(format!("expected {}th item in proof stream to be a path", nth + 2));
           }
@@ -410,7 +407,7 @@ impl<'a> FRI<'a> {
         }
 
         let path = match proof_stream.pull() {
-          Some(ProofStreamEnum::Path(p)) => p,
+          Some(StarkProofStreamEnum::Path(p)) => p,
           _ => {
             return Err(format!("expected {}th item in proof stream to be a path", nth + 3));
           }
@@ -508,6 +505,8 @@ mod tests {
     // todo: return proofstream
     fri.prove(&codeword, &mut proof_stream);
     println!("done");
+
+    println!("{}", proof_stream.serialize());
 
     let mut points = vec![];
     println!("verifying...");

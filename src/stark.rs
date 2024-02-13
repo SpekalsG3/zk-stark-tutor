@@ -1,6 +1,4 @@
-use std::fmt::{Display, Formatter};
 use rand::{RngCore, thread_rng};
-use serde::Serialize;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
@@ -10,9 +8,10 @@ use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::PROOF_BYTES;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
+use crate::utils::stringify::{Stringify, stringify_vec};
 
-#[derive(Debug, Clone, Serialize)]
-pub enum ProofStreamEnum<'a> {
+#[derive(Debug, Clone, PartialEq)]
+pub enum StarkProofStreamEnum<'a> {
     Root(Bytes),
     Codeword(Vec<FieldElement<'a>>),
     Path(Vec<Bytes>),
@@ -20,48 +19,122 @@ pub enum ProofStreamEnum<'a> {
     Value(FieldElement<'a>),
 }
 
-impl Display for ProofStreamEnum<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl<'a> StarkProofStreamEnum<'a> {
+    pub fn unstringify(str: &str, field: &'a Field) -> Self {
+        let mut chars = str.chars();
+        match chars.next().expect("nothing to unstringify") {
+            '"' => StarkProofStreamEnum::Root(Bytes::unstringify(str)),
+            '[' => {
+                match chars.next().expect("invalid vector") {
+                    ']' => panic!("unknown empty vector"),
+                    '"' => {
+                        let vec = str[1..str.len()-1]
+                            .split(',')
+                            .map(|s| Bytes::unstringify(s))
+                            .collect();
+                        StarkProofStreamEnum::Path(vec)
+                    },
+                    _ => {
+                        let vec = str[1..str.len()-1]
+                            .split(',')
+                            .map(|s| FieldElement::unstringify(s, &field))
+                            .collect();
+                        StarkProofStreamEnum::Codeword(vec)
+                    },
+                }
+            },
+            '(' => {
+                let mut iter = str[1..str.len()-1]
+                    .split(',')
+                    .map(|s| FieldElement::unstringify(s, &field));
+                StarkProofStreamEnum::Leafs((
+                    iter.next().expect("has to have 3 elements"),
+                    iter.next().expect("has to have 3 elements"),
+                    iter.next().expect("has to have 3 elements"),
+                ))
+            },
+            _ => StarkProofStreamEnum::Value(
+                FieldElement::unstringify(str, &field)
+            )
+        }
+    }
+
+    pub fn stringify(&self) -> (String, Option<&Field>) {
         match self {
-            ProofStreamEnum::Root(r) => {
-                write!(f, "\"{}\"", r.to_hex())
-            }
-            ProofStreamEnum::Codeword(c) => {
-                let mut iter = c.iter();
-                if let Some(o) = iter.next() {
-                    write!(f, "[{}", o.value)?;
-                }
-                for o in iter {
-                    write!(f, ",{}", o.value)?;
-                }
-                write!(f, "]")
-            }
-            ProofStreamEnum::Path(p) => {
-                let mut iter = p.iter();
-                if let Some(o) = iter.next() {
-                    write!(f, "[{}", o.to_hex())?;
-                }
-                for o in iter {
-                    write!(f, ",{}", o.to_hex())?;
-                }
-                write!(f, "]")
-            }
-            ProofStreamEnum::Leafs(l) => {
-                write!(f,
-                       "({},{},{})",
-                       l.0.value,
-                       l.1.value,
-                       l.2.value,
+            StarkProofStreamEnum::Root(r) => {
+                (
+                    format!("{}", r.stringify()),
+                    None,
                 )
             }
-            ProofStreamEnum::Value(fe) => {
-                write!(f, "{}", fe.value)
+            StarkProofStreamEnum::Codeword(c) => {
+                let mut field = None;
+                let str = stringify_vec(',', c, |fe| {
+                    if let Some(field) = field {
+                        if fe.field != field {
+                            panic!("codeword elements in different fields")
+                        }
+                    } else {
+                        field = Some(fe.field)
+                    }
+                    fe.value.to_string()
+                });
+                (str, field)
+            }
+            StarkProofStreamEnum::Path(p) => {
+                (
+                    stringify_vec(',', p, |fe| fe.stringify()),
+                    None,
+                )
+            }
+            StarkProofStreamEnum::Leafs(l) => {
+                let str = format!(
+                   "({},{},{})",
+                   l.0.value,
+                   l.1.value,
+                   l.2.value,
+                );
+                let field = if l.0.field == l.1.field && l.1.field == l.2.field {
+                    Some(l.0.field)
+                } else {
+                    panic!("leaf elements in different fields")
+                };
+                (str, field)
+            }
+            StarkProofStreamEnum::Value(fe) => {
+                (
+                    format!("{}", fe.value),
+                    Some(fe.field),
+                )
             }
         }
     }
 }
 
-pub type StarkProofStream<'a> = crate::proof_stream::ProofStream<ProofStreamEnum<'a>>;
+impl Stringify for &[StarkProofStreamEnum<'_>] {
+    fn stringify<'m>(&'m self) -> String {
+        // using different delimiters results in 5% increase in compressed size (from 26.98kb to 28.27kb) (from 27624 characters to 28940)
+        // which also doesn't eliminate the need of brackets (`[`, `(`) because otherwise impossible to distinguish array elements
+
+        let mut field = None;
+        let str = stringify_vec(';', self, |pse| {
+            let (str, f) = pse.stringify();
+            if let Some(f) = f {
+                if let Some(field) = field {
+                    if f != field {
+                        panic!("codeword elements in different fields")
+                    }
+                } else {
+                    field = Some(f)
+                }
+            }
+            str
+        });
+        format!("{};{}", field.map(|f| f.to_string()).unwrap_or("_".to_string()), str)
+    }
+}
+
+pub type StarkProofStream<'a> = crate::proof_stream::ProofStream<StarkProofStreamEnum<'a>>;
 
 pub struct Stark<'a> {
     field: &'a Field,
@@ -75,6 +148,31 @@ pub struct Stark<'a> {
     omicron: FieldElement<'a>,
     omicron_domain: Vec<FieldElement<'a>>,
     fri: FRI<'a>,
+}
+
+impl<'a> Stark<'a> {
+    pub fn deserialize_proof_stream(&self, str: &str) -> StarkProofStream {
+        let split = str
+            .split_once(';');
+        let v = if let Some((field_order, stream)) = split {
+            if field_order != "_" {
+                let field = Field::from(field_order);
+                if &field != self.field {
+                    panic!("serialized field differs from Stark's field");
+                }
+            }
+            stream[1..stream.len()-1]
+                .split(';')
+                .map(|s| {
+                    StarkProofStreamEnum::unstringify(s, self.field)
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        StarkProofStream::from(v)
+    }
 }
 
 impl<'a> Stark<'a> {
@@ -353,7 +451,7 @@ impl<'a> Stark<'a> {
                     let codeword = boundary_quotients[s].clone().evaluate_domain(&fri_domain);
 
                     let root = MerkleRoot::commit(&codeword);
-                    proof_stream.push(ProofStreamEnum::Root(root));
+                    proof_stream.push(StarkProofStreamEnum::Root(root));
 
                     codeword
                 })
@@ -398,7 +496,7 @@ impl<'a> Stark<'a> {
         let randomizer_codeword = randomizer_polynomial.evaluate_domain(&fri_domain);
         {
             let randomizer_root = MerkleRoot::commit(&randomizer_codeword);
-            proof_stream.push(ProofStreamEnum::Root(randomizer_root));
+            proof_stream.push(StarkProofStreamEnum::Root(randomizer_root));
         }
 
         let weights = self.sample_weights(
@@ -477,17 +575,17 @@ impl<'a> Stark<'a> {
         for bqc in boundary_quotient_codewords {
             for i in &duplicated_indices {
                 // SAFETY: [i] is safe because bqc is size of fri_domain_length and it's much bigger than size of duplicated_indices (2*num_collinearity_checks)
-                proof_stream.push(ProofStreamEnum::Value(bqc[*i]));
+                proof_stream.push(StarkProofStreamEnum::Value(bqc[*i]));
                 let path = MerkleRoot::open(*i, &bqc);
-                proof_stream.push(ProofStreamEnum::Path(path));
+                proof_stream.push(StarkProofStreamEnum::Path(path));
             }
         }
         // and in the randomizer
         for i in indices {
             // SAFETY: [i] safe because fri_domain_length is much bigger then size of indices (num_collinearity_checks)
-            proof_stream.push(ProofStreamEnum::Value(randomizer_codeword[i]));
+            proof_stream.push(StarkProofStreamEnum::Value(randomizer_codeword[i]));
             let path = MerkleRoot::open(i, &randomizer_codeword);
-            proof_stream.push(ProofStreamEnum::Path(path));
+            proof_stream.push(StarkProofStreamEnum::Path(path));
         }
 
         proof_stream.serialize()
@@ -502,5 +600,39 @@ impl<'a> Stark<'a> {
     ) -> bool {
         let mut proof_stream = proof_stream.unwrap_or(StarkProofStream::new());
         unimplemented!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::field::field::{Field, FIELD_PRIME};
+    use crate::field::field_element::FieldElement;
+    use crate::stark::{Stark, StarkProofStream, StarkProofStreamEnum};
+    use crate::utils::bytes::Bytes;
+
+    #[test]
+    fn deserialize_proof_stream () {
+        let field = Field::new(FIELD_PRIME);
+        let stark = Stark::new(
+            &field,
+            4, // expansion_factor,
+            2, // num_collinearity_checks,
+            2, // security_level,
+            2, // num_registers,
+            2, // num_cycles,
+            2, // transition_constraints_degree,
+        );
+        let stream = StarkProofStream::from(vec![
+            StarkProofStreamEnum::Root(Bytes::new(vec![0x49,0x6e,0x20,0x74])),
+            StarkProofStreamEnum::Codeword(vec![FieldElement::new(&field, 20), FieldElement::new(&field, 100)]),
+            StarkProofStreamEnum::Path(vec![Bytes::new(vec![0x49,0x6e,0x20,0x74]), Bytes::new(vec![0x1,0x6b,0xfe,0x25])]),
+            StarkProofStreamEnum::Leafs((FieldElement::new(&field, 1), FieldElement::new(&field, 5), FieldElement::new(&field, 10))),
+            StarkProofStreamEnum::Value(FieldElement::new(&field, 2)),
+        ]);
+
+        let serialized = stream.serialize();
+
+        let deserialized = stark.deserialize_proof_stream(&serialized);
+        assert_eq!(stream, deserialized);
     }
 }

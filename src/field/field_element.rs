@@ -1,18 +1,24 @@
 use std::cmp::Ordering;
 use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
-use serde::Serialize;
 use crate::field::field::Field;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 use crate::utils::xgcd::u_xgcd;
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct FieldElement<'a> {
   pub field: &'a Field,
   pub value: u128,
 }
 
 impl<'a> FieldElement<'a> {
+  pub fn unstringify(str: &str, field: &'a Field) -> Self {
+    Self {
+      field,
+      value: str.parse().unwrap(),
+    }
+  }
+
   pub fn new(field: &'a Field, value: u128) -> Self {
     Self {
       field,

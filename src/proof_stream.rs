@@ -1,8 +1,7 @@
-use std::fmt::{Display, Formatter};
 use std::io::Read;
-use serde::{Serialize};
 use sha3::{digest::{Update, ExtendableOutput}, Shake256};
 use crate::utils::bytes::Bytes;
+use crate::utils::stringify::Stringify;
 
 pub const PROOF_BYTES: usize = 32;
 
@@ -12,29 +11,71 @@ pub struct ProofStream<T> {
   read_index: usize,
 }
 
-impl<T> Display for ProofStream<T>
-  where
-    T: Display
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let mut iter = self.objects.iter();
-    if let Some(o) = iter.next() {
-      write!(f, "[{}", o)?;
-    }
-    for o in iter {
-      write!(f, ",{}", o)?;
-    }
-    write!(f, "]")
+impl<T: PartialEq> PartialEq for ProofStream<T> {
+  fn eq(&self, other: &Self) -> bool {
+    self.objects.iter().eq(other.objects.iter())
   }
 }
 
 impl<T> ProofStream<T>
   where
-    T: Serialize + Clone
+    for<'a> &'a[T]: Stringify,
+{
+  pub fn serialize (&self) -> String {
+    self.objects.as_slice().stringify()
+  }
+
+  // get challenge
+  pub fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
+    let mut hasher = Shake256::default();
+
+    let str = self.serialize();
+    hasher.update(str.as_bytes());
+
+    let mut buf = vec![0u8; num_bytes];
+    let reader = hasher.finalize_xof();
+    reader
+        .take(num_bytes as u64)
+        .read(&mut buf)
+        .unwrap(); // under the hood it asserts so Result is useless
+
+    Bytes::new(buf)
+  }
+
+  // reproduce challenge
+  pub fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
+    let mut hasher = Shake256::default();
+
+    let slice = &self.objects[0..self.read_index];
+    let str = slice.stringify();
+    hasher.update(str.as_bytes());
+
+    let mut buf = vec![0u8; num_bytes];
+    let reader = hasher.finalize_xof();
+    reader
+        .take(num_bytes as u64)
+        .read(&mut buf)
+        .unwrap(); // under the hood it asserts so Result is useless
+
+    Bytes::new(buf)
+  }
+}
+
+impl<T> ProofStream<T>
+  where
+    T: Clone,
+    for<'a> &'a[T]: Stringify,
 {
   pub fn new () -> Self {
     ProofStream {
       objects: vec![],
+      read_index: 0,
+    }
+  }
+
+  pub fn from (objects: Vec<T>) -> Self {
+    Self {
+      objects,
       read_index: 0,
     }
   }
@@ -54,55 +95,17 @@ impl<T> ProofStream<T>
 
     obj
   }
-
-  pub fn serialize (&self) -> String {
-    serde_json::to_string(&self.objects).unwrap()
-  }
-
-  // get challenge
-  pub fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
-    let mut hasher = Shake256::default();
-
-    let str = self.serialize();
-    hasher.update(str.as_bytes());
-
-    let mut buf = vec![0u8; num_bytes];
-    let reader = hasher.finalize_xof();
-    reader
-      .take(num_bytes as u64)
-      .read(&mut buf)
-      .unwrap(); // under the hood it asserts so Result is useless
-
-    Bytes::new(buf)
-  }
-
-  // reproduce challenge
-  pub fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
-    let mut hasher = Shake256::default();
-
-    let slice = &self.objects[0..self.read_index];
-    let str = serde_json::to_string(slice).unwrap();
-    hasher.update(str.as_bytes());
-
-    let mut buf = vec![0u8; num_bytes];
-    let reader = hasher.finalize_xof();
-    reader
-      .take(num_bytes as u64)
-      .read(&mut buf)
-      .unwrap(); // under the hood it asserts so Result is useless
-
-    Bytes::new(buf)
-  }
 }
 
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap;
-  use super::*;
+  use crate::proof_stream::ProofStream;
+  use crate::utils::stringify::Stringify;
 
   #[test]
   fn order () {
-    #[derive(Debug, Serialize, Clone)]
+    #[derive(Debug, Clone)]
     enum SomeObjects {
       Map(HashMap<String, usize>),
       Vec(Vec<usize>),
@@ -132,10 +135,15 @@ mod tests {
         }
       }
     }
+    impl Stringify for &[SomeObjects] {
+      fn stringify<'m>(&'m self) -> String {
+        format!("{:?}", self) // in test we don't care about optimized size
+      }
+    }
 
     let mut proof_stream = ProofStream::<SomeObjects>::new();
 
-    assert_eq!(proof_stream.fiat_shamir_prover(64), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c".into());
+    assert_eq!(proof_stream.fiat_shamir_prover(64).to_hex(), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c");
 
     proof_stream.push(SomeObjects::Str(String::from("Hello, World!")));
     proof_stream.push(SomeObjects::Vec(vec![0, 1, 5, 234]));
@@ -143,14 +151,14 @@ mod tests {
     map.insert(String::from("something"), 123);
     proof_stream.push(SomeObjects::Map(map.clone()));
 
-    assert_eq!(proof_stream.fiat_shamir_prover(4), "5127a2a6".into());
-    assert_eq!(proof_stream.fiat_shamir_prover(64), "5127a2a64ab1cbf4595c58f57171470e960d4d99f150be084a2410445916c8b325742d20aaa63f032915e64ac1c3556e93fb8d97d3abbb9d34f0a3636859b751".into());
-    assert_eq!(proof_stream.fiat_shamir_verifier(64), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c".into());
+    assert_eq!(proof_stream.fiat_shamir_prover(4).to_hex(), "78b0db5c");
+    assert_eq!(proof_stream.fiat_shamir_prover(64).to_hex(), "78b0db5cfd13c78498fd0951a9fd609f2521fd02d850cc561eced844bb0c338588358abcc0d98d76c6779cb388514f4bc19e2c0125b143abee166cb98c38a831");
+    assert_eq!(proof_stream.fiat_shamir_verifier(64).to_hex(), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c");
 
     assert_eq!(proof_stream.pull(), Some(SomeObjects::Str(String::from("Hello, World!"))));
     assert_eq!(proof_stream.pull(), Some(SomeObjects::Vec(vec![0, 1, 5, 234])));
     assert_eq!(proof_stream.pull(), Some(SomeObjects::Map(map)));
 
-    assert_eq!(proof_stream.fiat_shamir_verifier(64), "5127a2a64ab1cbf4595c58f57171470e960d4d99f150be084a2410445916c8b325742d20aaa63f032915e64ac1c3556e93fb8d97d3abbb9d34f0a3636859b751".into());
+    assert_eq!(proof_stream.fiat_shamir_verifier(64).to_hex(), "78b0db5cfd13c78498fd0951a9fd609f2521fd02d850cc561eced844bb0c338588358abcc0d98d76c6779cb388514f4bc19e2c0125b143abee166cb98c38a831");
   }
 }

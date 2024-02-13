@@ -1,17 +1,31 @@
 use std::cmp::Ordering;
-use serde::Serialize;
+use std::fmt::{Display, Formatter};
 use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
+use crate::utils::stringify::Stringify;
 use crate::utils::u512::U512;
 
 // 270497897142230380135924736767050121217
 pub const FIELD_PRIME: u128 = 1 + 407 * (1 << 119);
 
-#[derive(Debug, Serialize, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Field {
   pub order: u128,
 }
 
+impl From<&str> for Field {
+  fn from(value: &str) -> Self {
+    Self {
+      order: value.parse().unwrap(),
+    }
+  }
+}
+
+impl Display for Field {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.order)
+  }
+}
 
 impl Field {
   pub fn new (order: u128) -> Field {
