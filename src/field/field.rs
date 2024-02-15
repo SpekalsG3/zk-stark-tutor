@@ -2,7 +2,6 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
-use crate::utils::stringify::Stringify;
 use crate::utils::u512::U512;
 
 // 270497897142230380135924736767050121217

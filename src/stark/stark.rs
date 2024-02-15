@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use rand::{RngCore, thread_rng};
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
@@ -6,135 +7,9 @@ use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::PROOF_BYTES;
+use crate::stark::proof_stream_enum::{StarkProofStream, StarkProofStreamEnum};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
-use crate::utils::stringify::{Stringify, stringify_vec};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum StarkProofStreamEnum<'a> {
-    Root(Bytes),
-    Codeword(Vec<FieldElement<'a>>),
-    Path(Vec<Bytes>),
-    Leafs((FieldElement<'a>, FieldElement<'a>, FieldElement<'a>)),
-    Value(FieldElement<'a>),
-}
-
-impl<'a> StarkProofStreamEnum<'a> {
-    pub fn unstringify(str: &str, field: &'a Field) -> Self {
-        let mut chars = str.chars();
-        match chars.next().expect("nothing to unstringify") {
-            '"' => StarkProofStreamEnum::Root(Bytes::unstringify(str)),
-            '[' => {
-                match chars.next().expect("invalid vector") {
-                    ']' => panic!("unknown empty vector"),
-                    '"' => {
-                        let vec = str[1..str.len()-1]
-                            .split(',')
-                            .map(|s| Bytes::unstringify(s))
-                            .collect();
-                        StarkProofStreamEnum::Path(vec)
-                    },
-                    _ => {
-                        let vec = str[1..str.len()-1]
-                            .split(',')
-                            .map(|s| FieldElement::unstringify(s, &field))
-                            .collect();
-                        StarkProofStreamEnum::Codeword(vec)
-                    },
-                }
-            },
-            '(' => {
-                let mut iter = str[1..str.len()-1]
-                    .split(',')
-                    .map(|s| FieldElement::unstringify(s, &field));
-                StarkProofStreamEnum::Leafs((
-                    iter.next().expect("has to have 3 elements"),
-                    iter.next().expect("has to have 3 elements"),
-                    iter.next().expect("has to have 3 elements"),
-                ))
-            },
-            _ => StarkProofStreamEnum::Value(
-                FieldElement::unstringify(str, &field)
-            )
-        }
-    }
-
-    pub fn stringify(&self) -> (String, Option<&Field>) {
-        match self {
-            StarkProofStreamEnum::Root(r) => {
-                (
-                    format!("{}", r.stringify()),
-                    None,
-                )
-            }
-            StarkProofStreamEnum::Codeword(c) => {
-                let mut field = None;
-                let str = stringify_vec(',', c, |fe| {
-                    if let Some(field) = field {
-                        if fe.field != field {
-                            panic!("codeword elements in different fields")
-                        }
-                    } else {
-                        field = Some(fe.field)
-                    }
-                    fe.value.to_string()
-                });
-                (str, field)
-            }
-            StarkProofStreamEnum::Path(p) => {
-                (
-                    stringify_vec(',', p, |fe| fe.stringify()),
-                    None,
-                )
-            }
-            StarkProofStreamEnum::Leafs(l) => {
-                let str = format!(
-                   "({},{},{})",
-                   l.0.value,
-                   l.1.value,
-                   l.2.value,
-                );
-                let field = if l.0.field == l.1.field && l.1.field == l.2.field {
-                    Some(l.0.field)
-                } else {
-                    panic!("leaf elements in different fields")
-                };
-                (str, field)
-            }
-            StarkProofStreamEnum::Value(fe) => {
-                (
-                    format!("{}", fe.value),
-                    Some(fe.field),
-                )
-            }
-        }
-    }
-}
-
-impl Stringify for &[StarkProofStreamEnum<'_>] {
-    fn stringify<'m>(&'m self) -> String {
-        // using different delimiters results in 5% increase in compressed size (from 26.98kb to 28.27kb) (from 27624 characters to 28940)
-        // which also doesn't eliminate the need of brackets (`[`, `(`) because otherwise impossible to distinguish array elements
-
-        let mut field = None;
-        let str = stringify_vec(';', self, |pse| {
-            let (str, f) = pse.stringify();
-            if let Some(f) = f {
-                if let Some(field) = field {
-                    if f != field {
-                        panic!("codeword elements in different fields")
-                    }
-                } else {
-                    field = Some(f)
-                }
-            }
-            str
-        });
-        format!("{};{}", field.map(|f| f.to_string()).unwrap_or("_".to_string()), str)
-    }
-}
-
-pub type StarkProofStream<'a> = crate::proof_stream::ProofStream<StarkProofStreamEnum<'a>>;
 
 pub struct Stark<'a> {
     field: &'a Field,
@@ -596,10 +471,203 @@ impl<'a> Stark<'a> {
         proof: String,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
-        proof_stream: Option<StarkProofStream>, // todo: Option here is questionable
-    ) -> bool {
-        let mut proof_stream = proof_stream.unwrap_or(StarkProofStream::new());
-        unimplemented!()
+    ) -> Result<(), String> {
+        let mut proof_stream = self.deserialize_proof_stream(&proof);
+
+        // infer trace length from boundary conditions
+        let original_trace_length = 1 + boundary
+            .iter()
+            .max_by(|(c1, _, _), (c2, _, _)| c1.cmp(c2))
+            .expect("boundary is empty")
+            .0;
+        let randomized_trace_length = original_trace_length + self.num_randomizers;
+
+        // get merkle roots of boundary quotient codewords
+        let boundary_quotient_roots = (0..self.num_registers)
+            .map(|i| proof_stream.pull().unwrap().expect_root())
+            .collect::<Vec<_>>();
+
+        // get merkle root of randomizer polynomial
+        let randomizer_root = proof_stream.pull().unwrap().expect_root();
+
+        let boundary_interpolants = self.boundary_interpolants(boundary);
+
+        // get weights for non-linear combination
+        let weights = self.sample_weights(
+            1 + 2 * transition_constraints.len() + 2 * boundary_interpolants.len(),
+            &proof_stream.fiat_shamir_verifier(PROOF_BYTES),
+        );
+
+        // verify low degree of combination polynomial
+        let (
+            indices,
+            values,
+        ) = {
+            let mut points = vec![];
+            if let Err(e) = self.fri.verify(
+                &mut proof_stream,
+                &mut points,
+            ) {
+                return Err(format!("FRI verification failed: {}", e));
+            }
+            points.sort_by(|a, b| a.0.cmp(&b.0));
+
+            let points_len = points.len();
+            points
+                .into_iter().
+                fold((
+                    Vec::with_capacity(points_len),
+                    Vec::with_capacity(points_len),
+                ), |mut acc, p| {
+                    acc.0.push(p.0);
+                    acc.1.push(p.1);
+                    acc
+                })
+        };
+
+        // read and verify leafs, which are elements of boundary quotient codewords
+        let leafs = {
+            let duplicated_indices = indices
+                .clone()
+                .into_iter()
+                .chain(
+                    indices
+                        .iter()
+                        .map(|i| {
+                            (i + self.expansion_factor) % self.fri.domain_length
+                        })
+                )
+                .collect::<Vec<_>>();
+
+            boundary_quotient_roots
+                .iter()
+                .map(|bqr| {
+                    duplicated_indices
+                        .iter()
+                        .map(|i| {
+                            let leaf = proof_stream.pull().unwrap().expect_value();
+                            let path = proof_stream.pull().unwrap().expect_path();
+                            let accepted = MerkleRoot::verify(bqr, *i, &path, &leaf);
+
+                            if !accepted {
+                                return Err("Merkle path not verified");
+                            }
+
+                            Ok((*i, leaf))
+                        })
+                        .collect::<Result<HashMap<_, _>, _>>()
+                })
+                .collect::<Result<Vec<_>, _>>()?
+        };
+
+        // read and verify randomizer leafs
+        let randomizer = indices
+            .iter()
+            .map(|i| {
+                let leaf = proof_stream.pull().unwrap().expect_value();
+                let path = proof_stream.pull().unwrap().expect_path();
+                let accepted = MerkleRoot::verify(&randomizer_root, *i, &path, &leaf);
+
+                if !accepted {
+                    return Err("Merkle path not verified");
+                }
+
+                Ok((i, leaf))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
+
+        // verify leafs of combination polynomial
+        let boundary_zerofiers = self.boundary_zerofiers(boundary);
+        let boundary_interpolants = self.boundary_interpolants(boundary);
+        indices
+            .into_iter()
+            .enumerate()
+            .try_for_each(|(index_i, index_current)| {
+                // get trace values by applying correction to boundary quotient values (which are leafs)
+                let domain_index_current = self.fri.generator * (self.fri.omega ^ index_current);
+                let index_next = (index_current + self.expansion_factor) % self.fri.domain_length;
+                let domain_index_next = self.fri.generator * (self.fri.omega ^ index_next);
+
+                let (
+                    trace_current,
+                    trace_next,
+                ) = (0..self.num_registers)
+                    .fold((
+                        Vec::with_capacity(self.num_registers),
+                        Vec::with_capacity(self.num_registers),
+                    ), |mut acc, s| {
+                        let zerofier = &boundary_zerofiers[s];
+                        let interpolant = &boundary_interpolants[s];
+
+                        acc.0.push(leafs[s][&index_current] * zerofier.evaluate(&domain_index_current) + interpolant.evaluate(&domain_index_current));
+                        acc.1.push(leafs[s][&index_next]    * zerofier.evaluate(&domain_index_next)    + interpolant.evaluate(&domain_index_next));
+
+                        acc
+                    });
+
+                let point = {
+                    let mut v = Vec::with_capacity(1 + trace_current.len() + trace_next.len());
+                    v.push(domain_index_current);
+                    v.extend(trace_current.clone());
+                    v.extend(trace_next.clone());
+                    v
+                };
+
+                let transition_constraint_values = transition_constraints
+                    .iter()
+                    .map(|tc| tc.evaluate(&point))
+                    .collect::<Vec<_>>();
+
+                // compute non-linear combination
+                let terms = {
+                    let mut terms = Vec::with_capacity(1 + 2 * transition_constraint_values.len() + 2 * leafs.len());
+                    let transition_constraints_degree = self.max_degree(transition_constraints);
+
+                    {
+                        let transition_quotient_degree_bounds = self.transition_quotient_degree_bounds(transition_constraints);
+                        // todo: how to name that?
+                        let transition_quotient = self.transition_zerofier().evaluate(&domain_index_current);
+                        transition_constraint_values
+                            .into_iter()
+                            .enumerate()
+                            .for_each(|(s, tcv)| {
+                                let quotient = tcv / transition_quotient;
+                                terms.push(quotient);
+
+                                let shift = transition_constraints_degree - transition_quotient_degree_bounds[s];
+                                terms.push(quotient * (domain_index_current ^ shift));
+                            });
+                    }
+
+                    {
+                        let boundary_quotient_degree_bounds = self.boundary_quotient_degree_bounds(randomized_trace_length, boundary);
+                        (0..self.num_registers)
+                            .for_each(|s| {
+                                let bqv = leafs[s][&index_current];
+                                terms.push(bqv);
+
+                                let shift = transition_constraints_degree - boundary_quotient_degree_bounds[s] as u128;
+                                terms.push(bqv * (domain_index_current ^ shift));
+                            });
+                    }
+
+                    terms
+                };
+
+                let combination = terms
+                    .into_iter()
+                    .enumerate()
+                    .map(|(j, term)| term * weights[j])
+                    .reduce(|a, b| a + b)
+                    .unwrap(); // SAFETY: terms are at least length of 1
+
+                // verify againts combination polynomial value
+                if combination != values[index_i] {
+                    return Err("Combination doesn't match with polynomial value".to_string())
+                }
+
+                Ok(())
+            })
     }
 }
 
@@ -607,7 +675,8 @@ impl<'a> Stark<'a> {
 mod tests {
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
-    use crate::stark::{Stark, StarkProofStream, StarkProofStreamEnum};
+    use crate::stark::proof_stream_enum::{StarkProofStream, StarkProofStreamEnum};
+    use crate::stark::stark::Stark;
     use crate::utils::bytes::Bytes;
 
     #[test]
