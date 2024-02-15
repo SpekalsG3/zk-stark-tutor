@@ -1,9 +1,7 @@
 use std::io::Read;
-use sha3::{digest::{Update, ExtendableOutput}, Shake256};
+use crate::crypto::shake256::shake256;
 use crate::utils::bytes::Bytes;
 use crate::utils::stringify::Stringify;
-
-pub const PROOF_BYTES: usize = 32;
 
 #[derive(Debug)]
 pub struct ProofStream<T> {
@@ -21,43 +19,23 @@ impl<T> ProofStream<T>
   where
     for<'a> &'a[T]: Stringify,
 {
-  pub fn serialize (&self) -> String {
-    self.objects.as_slice().stringify()
+  pub fn serialize (&self) -> Bytes {
+    self.objects.as_slice().stringify().as_bytes().into()
   }
 
   // get challenge
   pub fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
-    let mut hasher = Shake256::default();
-
     let str = self.serialize();
-    hasher.update(str.as_bytes());
 
-    let mut buf = vec![0u8; num_bytes];
-    let reader = hasher.finalize_xof();
-    reader
-        .take(num_bytes as u64)
-        .read(&mut buf)
-        .unwrap(); // under the hood it asserts so Result is useless
-
-    Bytes::new(buf)
+    shake256(str, num_bytes)
   }
 
   // reproduce challenge
   pub fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
-    let mut hasher = Shake256::default();
-
     let slice = &self.objects[0..self.read_index];
     let str = slice.stringify();
-    hasher.update(str.as_bytes());
 
-    let mut buf = vec![0u8; num_bytes];
-    let reader = hasher.finalize_xof();
-    reader
-        .take(num_bytes as u64)
-        .read(&mut buf)
-        .unwrap(); // under the hood it asserts so Result is useless
-
-    Bytes::new(buf)
+    shake256(str.as_bytes().into(), num_bytes)
   }
 }
 

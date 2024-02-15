@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use rand::{RngCore, thread_rng};
+use crate::crypto::shake256::PROOF_BYTES;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
-use crate::proof_stream::PROOF_BYTES;
 use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
@@ -26,7 +26,8 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deserialize_proof_stream(&self, str: &str) -> StarkProofStream {
+    pub fn deserialize_proof_stream(&self, bytes: &Bytes) -> StarkProofStream {
+        let str = String::from_utf8_lossy(bytes.bytes());
         let split = str
             .split_once(';');
         let v = if let Some((field_order, stream)) = split {
@@ -246,7 +247,7 @@ impl<'a> Stark<'a> {
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
         mut proof_stream: &mut StarkProofStream<'m>,
-    ) -> String {
+    ) -> Bytes {
         let mut thread_rng = thread_rng();
 
         // concatenate randomizers - induces zero-knowledge
@@ -467,7 +468,7 @@ impl<'a> Stark<'a> {
 
     pub fn verify<'m> (
         &self,
-        proof: String,
+        proof: Bytes,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
     ) -> Result<(), String> {

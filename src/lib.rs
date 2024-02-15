@@ -1,5 +1,6 @@
 pub mod crypto {
     pub mod blake2b512;
+    pub mod shake256;
 }
 pub mod field {
     pub mod field;
