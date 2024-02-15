@@ -1,2 +1,2 @@
 pub mod stark;
-pub mod proof_stream_enum;
+pub mod proof_stream;

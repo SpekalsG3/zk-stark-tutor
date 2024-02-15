@@ -26,20 +26,10 @@ impl<'a> FieldElement<'a> {
     }
   }
 
-  // inverse of `x` is `x ** -1 = 1/x` so that `x` multiplied by inversed `x` is `1`
   pub fn inverse (&self) -> FieldElement<'a> {
-    let (a, _, _) = u_xgcd(self.value, self.field.order);
-
-    // because a can be negative
-    let a = match a.cmp(&0) {
-      Ordering::Greater => a as u128,
-      Ordering::Equal => 0,
-      Ordering::Less => self.field.sub_mod(self.field.order, a.neg() as u128),
-    };
-
     FieldElement {
       field: self.field,
-      value: a,
+      value: self.field.inv(self.value),
     }
   }
 

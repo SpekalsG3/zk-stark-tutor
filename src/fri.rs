@@ -4,7 +4,7 @@ use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::PROOF_BYTES;
-use crate::stark::proof_stream_enum::{StarkProofStream, StarkProofStreamEnum};
+use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 

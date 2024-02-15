@@ -1,8 +1,10 @@
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use std::ops::Neg;
 use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
 use crate::utils::u512::U512;
+use crate::utils::xgcd::u_xgcd;
 
 // 270497897142230380135924736767050121217
 pub const FIELD_PRIME: u128 = 1 + 407 * (1 << 119);
@@ -141,6 +143,18 @@ impl<'a> Field {
       0
     } else {
       self.order - a
+    }
+  }
+
+  // inverse of `x` is `x ** -1 = 1/x` so that `x` multiplied by inversed `x` is `1`
+  pub(crate) fn inv (&self, a: u128) -> u128 {
+    let (a, _, _) = u_xgcd(a, self.order);
+
+    // because a can be negative
+    match a.cmp(&0) {
+      Ordering::Greater => a as u128,
+      Ordering::Equal => 0,
+      Ordering::Less => self.sub_mod(self.order, a.neg() as u128),
     }
   }
 }

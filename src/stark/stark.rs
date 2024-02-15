@@ -7,7 +7,7 @@ use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::PROOF_BYTES;
-use crate::stark::proof_stream_enum::{StarkProofStream, StarkProofStreamEnum};
+use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 
@@ -20,7 +20,7 @@ pub struct Stark<'a> {
     original_trace_length: usize,
     transition_constraints_degree: usize,
     num_randomizers: usize,
-    omicron: FieldElement<'a>,
+    pub(crate) omicron: FieldElement<'a>,
     omicron_domain: Vec<FieldElement<'a>>,
     fri: FRI<'a>,
 }
@@ -245,10 +245,9 @@ impl<'a> Stark<'a> {
         trace: Vec<Vec<FieldElement<'m>>>,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
-        proof_stream: Option<StarkProofStream>, // todo: Option here is questionable
+        mut proof_stream: &mut StarkProofStream<'m>,
     ) -> String {
         let mut thread_rng = thread_rng();
-        let mut proof_stream = proof_stream.unwrap_or(StarkProofStream::new());
 
         // concatenate randomizers - induces zero-knowledge
         let trace = {
@@ -484,7 +483,7 @@ impl<'a> Stark<'a> {
 
         // get merkle roots of boundary quotient codewords
         let boundary_quotient_roots = (0..self.num_registers)
-            .map(|i| proof_stream.pull().unwrap().expect_root())
+            .map(|_| proof_stream.pull().unwrap().expect_root())
             .collect::<Vec<_>>();
 
         // get merkle root of randomizer polynomial
@@ -561,7 +560,7 @@ impl<'a> Stark<'a> {
         };
 
         // read and verify randomizer leafs
-        let randomizer = indices
+        let randomizers = indices
             .iter()
             .map(|i| {
                 let leaf = proof_stream.pull().unwrap().expect_value();
@@ -572,7 +571,7 @@ impl<'a> Stark<'a> {
                     return Err("Merkle path not verified");
                 }
 
-                Ok((i, leaf))
+                Ok((*i, leaf))
             })
             .collect::<Result<HashMap<_, _>, _>>()?;
 
@@ -620,8 +619,10 @@ impl<'a> Stark<'a> {
 
                 // compute non-linear combination
                 let terms = {
-                    let mut terms = Vec::with_capacity(1 + 2 * transition_constraint_values.len() + 2 * leafs.len());
                     let transition_constraints_degree = self.max_degree(transition_constraints);
+
+                    let mut terms = Vec::with_capacity(1 + 2 * transition_constraint_values.len() + 2 * leafs.len());
+                    terms.push(randomizers[&index_current]);
 
                     {
                         let transition_quotient_degree_bounds = self.transition_quotient_degree_bounds(transition_constraints);
@@ -675,7 +676,7 @@ impl<'a> Stark<'a> {
 mod tests {
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
-    use crate::stark::proof_stream_enum::{StarkProofStream, StarkProofStreamEnum};
+    use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
     use crate::stark::stark::Stark;
     use crate::utils::bytes::Bytes;
 
