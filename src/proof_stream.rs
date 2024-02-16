@@ -1,10 +1,10 @@
 use std::io::Read;
 use crate::crypto::shake256::shake256;
 use crate::utils::bytes::Bytes;
-use crate::utils::stringify::Stringify;
+use crate::utils::digest::Digest;
 
 pub trait ProofStream<T> {
-  fn serialize (&self) -> Bytes;
+  fn digest(&self) -> Bytes;
   fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes;
   fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes;
   fn push (&mut self, obj: T);
@@ -26,15 +26,15 @@ impl<T: PartialEq> PartialEq for DefaultProofStream<T> {
 impl<T> ProofStream<T> for DefaultProofStream<T>
   where
       T: Clone,
-      for<'a> &'a[T]: Stringify,
+      for<'a> &'a[T]: Digest,
 {
-  fn serialize (&self) -> Bytes {
-    self.objects.as_slice().stringify().as_bytes().into()
+  fn digest(&self) -> Bytes {
+    self.objects.as_slice().digest()
   }
 
   // get challenge
   fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
-    let str = self.serialize();
+    let str = self.digest();
 
     shake256(str, num_bytes)
   }
@@ -42,9 +42,9 @@ impl<T> ProofStream<T> for DefaultProofStream<T>
   // reproduce challenge
   fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
     let slice = &self.objects[0..self.read_index];
-    let str = slice.stringify();
+    let str = slice.digest();
 
-    shake256(str.as_bytes().into(), num_bytes)
+    shake256(str, num_bytes)
   }
 
   fn push (&mut self, obj: T) {
@@ -81,7 +81,8 @@ impl<T> DefaultProofStream<T> {
 mod tests {
   use std::collections::HashMap;
   use crate::proof_stream::{DefaultProofStream, ProofStream};
-  use crate::utils::stringify::Stringify;
+  use crate::utils::bytes::Bytes;
+  use crate::utils::digest::Digest;
 
   #[test]
   fn order () {
@@ -115,9 +116,9 @@ mod tests {
         }
       }
     }
-    impl Stringify for &[SomeObjects] {
-      fn stringify<'m>(&'m self) -> String {
-        format!("{:?}", self) // in test we don't care about optimized size
+    impl Digest for &[SomeObjects] {
+      fn digest<'m>(&'m self) -> Bytes {
+        unimplemented!()
       }
     }
 

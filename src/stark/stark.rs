@@ -27,28 +27,8 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deser_default_proof_stream(&self, bytes: &Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
-        let str = String::from_utf8_lossy(bytes.bytes());
-        let split = str
-            .split_once(';');
-        let v = if let Some((field_order, stream)) = split {
-            if field_order != "_" {
-                let field = Field::from(field_order);
-                if &field != self.field {
-                    panic!("serialized field differs from Stark's field");
-                }
-            }
-            stream[1..stream.len()-1]
-                .split(';')
-                .map(|s| {
-                    StarkProofStreamEnum::unstringify(s, self.field)
-                })
-                .collect()
-        } else {
-            vec![]
-        };
-
-        DefaultProofStream::from(v)
+    pub fn deser_default_proof_stream(&self, bytes: Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
+        unimplemented!()
     }
 }
 
@@ -464,7 +444,7 @@ impl<'a> Stark<'a> {
             proof_stream.push(StarkProofStreamEnum::Path(path));
         }
 
-        proof_stream.serialize()
+        proof_stream.digest()
     }
 
     pub fn verify<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
@@ -701,9 +681,9 @@ mod tests {
             StarkProofStreamEnum::Value(FieldElement::new(&field, 2)),
         ]);
 
-        let serialized = stream.serialize();
+        let serialized = stream.digest();
 
-        let deserialized = stark.deser_default_proof_stream(&serialized);
+        let deserialized = stark.deser_default_proof_stream(serialized);
         assert_eq!(stream, deserialized);
     }
 }

@@ -3,14 +3,9 @@ use std::ops::Add;
 #[derive(Debug, Clone, PartialOrd, PartialEq)]
 pub struct Bytes(Vec<u8>);
 
-pub struct Iter<'a> {
-  i: usize,
-  bytes: &'a Bytes,
-}
-
 impl Bytes {
   pub fn new (buf: Vec<u8>) -> Self {
-    Self (buf)
+    Self(buf)
   }
 
   pub fn to_hex (&self) -> String {
@@ -22,13 +17,6 @@ impl Bytes {
 
   pub fn bytes (&self) -> &[u8] {
     &self.0
-  }
-
-  pub fn iter (&self) -> Iter<'_> {
-    Iter {
-      i: 0,
-      bytes: self,
-    }
   }
 
   pub fn stringify (&self) -> String {
@@ -73,17 +61,6 @@ impl Add for Bytes {
   }
 }
 
-impl<'a> Iterator for Iter<'a> {
-  type Item = &'a u8;
-  fn next (&mut self) -> Option<Self::Item> {
-    let item = self.bytes.0.get(self.i);
-
-    self.i += 1;
-
-    item
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -105,16 +82,5 @@ mod tests {
     let bytes_a = Bytes (vec![0x49,0x6e]);
     let bytes_b = Bytes (vec![0x20,0x74]);
     assert_eq!(bytes_a + bytes_b, Bytes (vec![0x49,0x6e,0x20,0x74]));
-  }
-
-  #[test]
-  fn iter () {
-    let bytes = Bytes (vec![0x49,0x6e,0x20,0x74]);
-    let mut iter = bytes.iter();
-    assert_eq!(iter.next(), Some(&0x49));
-    assert_eq!(iter.next(), Some(&0x6e));
-    assert_eq!(iter.next(), Some(&0x20));
-    assert_eq!(iter.next(), Some(&0x74));
-    assert_eq!(iter.next(), None);
   }
 }

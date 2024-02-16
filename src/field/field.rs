@@ -77,6 +77,7 @@ impl<'a> Field {
 
   pub fn sample (&self, bytes: &Bytes) -> FieldElement {
     let res = bytes
+      .bytes()
       .iter()
       .fold(U512::new(), |acc, b| {
         (acc << 8) ^ (*b as u128)

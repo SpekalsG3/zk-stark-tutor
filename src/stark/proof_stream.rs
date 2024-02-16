@@ -1,7 +1,8 @@
+use std::io::Read;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
-use crate::utils::stringify::{Stringify, stringify_vec};
+use crate::utils::digest::{Digest, digest_vec};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StarkProofStreamEnum<'a> {
@@ -13,56 +14,78 @@ pub enum StarkProofStreamEnum<'a> {
 }
 
 impl<'a> StarkProofStreamEnum<'a> {
-    pub fn unstringify(str: &str, field: &'a Field) -> Self {
-        let mut chars = str.chars();
-        match chars.next().expect("nothing to unstringify") {
-            '"' => StarkProofStreamEnum::Root(Bytes::unstringify(str)),
-            '[' => {
-                match chars.next().expect("invalid vector") {
-                    ']' => panic!("unknown empty vector"),
-                    '"' => {
-                        let vec = str[1..str.len()-1]
-                            .split(',')
-                            .map(|s| Bytes::unstringify(s))
-                            .collect();
-                        StarkProofStreamEnum::Path(vec)
-                    },
-                    _ => {
-                        let vec = str[1..str.len()-1]
-                            .split(',')
-                            .map(|s| FieldElement::unstringify(s, &field))
-                            .collect();
-                        StarkProofStreamEnum::Codeword(vec)
-                    },
+    pub fn from_bytes(b: Bytes, field: &'a Field) -> Self {
+        let mut b = b.bytes();
+
+        let mut code = [0; 1];
+        b.read_exact(&mut code).unwrap();
+
+        let mut size = [0; 64 / 8];
+        b.read_exact(&mut size).unwrap();
+        let size = usize::from_le_bytes(size);
+
+        let b = {
+            let mut el = Vec::with_capacity(size);
+            b.read_exact(&mut el).unwrap();
+            el
+        };
+
+        match code[0] {
+            0 => StarkProofStreamEnum::Root(Bytes::from(b)),
+            1 => StarkProofStreamEnum::Codeword(
+                b
+                    .chunks(u128::BITS as usize / 8)
+                    .map(|v| u128::from_le_bytes(v.try_into().expect("incorrect size")))
+                    .map(|v| FieldElement::new(&field, v))
+                    .collect()
+            ),
+            2 => {
+                let mut path = vec![];
+
+                let mut b = b.as_slice();
+                let mut size = [0; 64 / 8];
+                while let Ok(_) = b.read(&mut size) {
+                    let size = usize::from_le_bytes(size.try_into().expect("incorrect size"));
+                    let mut el = Vec::with_capacity(size);
+                    b.read(&mut el).unwrap();
+
+                    path.push(Bytes::new(el));
                 }
+
+                StarkProofStreamEnum::Path(path)
             },
-            '(' => {
-                let mut iter = str[1..str.len()-1]
-                    .split(',')
-                    .map(|s| FieldElement::unstringify(s, &field));
+            3 => {
+                let mut iter = b
+                    .chunks(u128::BITS as usize / 8)
+                    .map(|v| u128::from_le_bytes(v.try_into().expect("incorrect size")))
+                    .map(|v| FieldElement::new(&field, v));
                 StarkProofStreamEnum::Leafs((
-                    iter.next().expect("has to have 3 elements"),
-                    iter.next().expect("has to have 3 elements"),
-                    iter.next().expect("has to have 3 elements"),
+                    iter.next().expect("Leaf to be 3 element"),
+                    iter.next().expect("Leaf to be 3 element"),
+                    iter.next().expect("Leaf to be 3 element"),
                 ))
             },
-            _ => StarkProofStreamEnum::Value(
-                FieldElement::unstringify(str, &field)
-            )
+            4 => {
+                StarkProofStreamEnum::Value(
+                    FieldElement::new(&field, u128::from_le_bytes(b.try_into().expect("incorrect size")))
+                )
+            },
+            _ => panic!("Unknown code"),
         }
     }
 
-    pub fn stringify(&self) -> (String, Option<&Field>) {
+    pub fn to_bytes(&self) -> (u8, Bytes, Option<&'a Field>) {
         match self {
             StarkProofStreamEnum::Root(r) => {
                 (
-                    format!("{}", r.stringify()),
+                    0,
+                    r.clone(),
                     None,
                 )
             }
             StarkProofStreamEnum::Codeword(c) => {
                 let mut field = None;
-                let str = stringify_vec(',', c, |fe| {
+                let str = digest_vec(&c, |fe| {
                     if let Some(field) = field {
                         if fe.field != field {
                             panic!("codeword elements in different fields")
@@ -70,33 +93,43 @@ impl<'a> StarkProofStreamEnum<'a> {
                     } else {
                         field = Some(fe.field)
                     }
-                    fe.value.to_string()
+                    Bytes::new(fe.value.to_le_bytes().to_vec())
                 });
-                (str, field)
+                (
+                    1,
+                    str,
+                    field,
+                )
             }
             StarkProofStreamEnum::Path(p) => {
                 (
-                    stringify_vec(',', p, |fe| fe.stringify()),
+                    2,
+                    digest_vec(&p, |b| Bytes::new(b.bytes().len().to_le_bytes().to_vec()) + b.clone()),
                     None,
                 )
             }
             StarkProofStreamEnum::Leafs(l) => {
-                let str = format!(
-                    "({},{},{})",
-                    l.0.value,
-                    l.1.value,
-                    l.2.value,
-                );
                 let field = if l.0.field == l.1.field && l.1.field == l.2.field {
                     Some(l.0.field)
                 } else {
                     panic!("leaf elements in different fields")
                 };
-                (str, field)
+
+                let b =
+                    Bytes::new(l.0.value.to_le_bytes().to_vec())
+                    + Bytes::new(l.1.value.to_le_bytes().to_vec())
+                    + Bytes::new(l.2.value.to_le_bytes().to_vec());
+
+                (
+                    3,
+                    b,
+                    field,
+                )
             }
             StarkProofStreamEnum::Value(fe) => {
                 (
-                    format!("{}", fe.value),
+                    4,
+                    Bytes::new(fe.value.to_le_bytes().to_vec()),
                     Some(fe.field),
                 )
             }
@@ -135,11 +168,11 @@ impl<'a> StarkProofStreamEnum<'a> {
     }
 }
 
-impl Stringify for &[StarkProofStreamEnum<'_>] {
-    fn stringify<'m>(&'m self) -> String {
+impl Digest for &[StarkProofStreamEnum<'_>] {
+    fn digest<'m>(&'m self) -> Bytes {
         let mut field = None;
-        let str = stringify_vec(';', self, |pse| {
-            let (str, f) = pse.stringify();
+        digest_vec(self, |pse| {
+            let (code, bytes, f) = pse.to_bytes();
             if let Some(f) = f {
                 if let Some(field) = field {
                     if f != field {
@@ -149,8 +182,12 @@ impl Stringify for &[StarkProofStreamEnum<'_>] {
                     field = Some(f)
                 }
             }
-            str
-        });
-        format!("{};{}", field.map(|f| f.to_string()).unwrap_or("_".to_string()), str)
+
+            let bytes_size = bytes.bytes().len().to_le_bytes();
+            let mut v = Vec::with_capacity(1 + bytes_size.len());
+            v.push(code);
+            v.extend(bytes_size);
+            Bytes::new(v) + bytes
+        })
     }
 }
