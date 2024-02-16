@@ -3,66 +3,55 @@ use crate::crypto::shake256::shake256;
 use crate::utils::bytes::Bytes;
 use crate::utils::stringify::Stringify;
 
-#[derive(Debug)]
-pub struct ProofStream<T> {
-  objects: Vec<T>,
-  read_index: usize,
+pub trait ProofStream<T> {
+  fn serialize (&self) -> Bytes;
+  fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes;
+  fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes;
+  fn push (&mut self, obj: T);
+  fn pull (&mut self) -> Option<T>;
 }
 
-impl<T: PartialEq> PartialEq for ProofStream<T> {
+#[derive(Debug)]
+pub struct DefaultProofStream<T> {
+  pub(crate) objects: Vec<T>,
+  pub(crate) read_index: usize,
+}
+
+impl<T: PartialEq> PartialEq for DefaultProofStream<T> {
   fn eq(&self, other: &Self) -> bool {
     self.objects.iter().eq(other.objects.iter())
   }
 }
 
-impl<T> ProofStream<T>
+impl<T> ProofStream<T> for DefaultProofStream<T>
   where
-    for<'a> &'a[T]: Stringify,
+      T: Clone,
+      for<'a> &'a[T]: Stringify,
 {
-  pub fn serialize (&self) -> Bytes {
+  fn serialize (&self) -> Bytes {
     self.objects.as_slice().stringify().as_bytes().into()
   }
 
   // get challenge
-  pub fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
+  fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes {
     let str = self.serialize();
 
     shake256(str, num_bytes)
   }
 
   // reproduce challenge
-  pub fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
+  fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes {
     let slice = &self.objects[0..self.read_index];
     let str = slice.stringify();
 
     shake256(str.as_bytes().into(), num_bytes)
   }
-}
 
-impl<T> ProofStream<T>
-  where
-    T: Clone,
-    for<'a> &'a[T]: Stringify,
-{
-  pub fn new () -> Self {
-    ProofStream {
-      objects: vec![],
-      read_index: 0,
-    }
-  }
-
-  pub fn from (objects: Vec<T>) -> Self {
-    Self {
-      objects,
-      read_index: 0,
-    }
-  }
-
-  pub fn push (&mut self, obj: T) {
+  fn push (&mut self, obj: T) {
     self.objects.push(obj);
   }
 
-  pub fn pull (&mut self) -> Option<T> {
+  fn pull (&mut self) -> Option<T> {
     assert!(self.read_index < self.objects.len(), "Cannot pull, queue is empty");
 
     let obj = match self.objects.get(self.read_index) {
@@ -75,10 +64,23 @@ impl<T> ProofStream<T>
   }
 }
 
+impl<T> DefaultProofStream<T> {
+  pub fn new () -> Self {
+    Self::from(vec![])
+  }
+
+  pub fn from (objects: Vec<T>) -> Self {
+    Self {
+      objects,
+      read_index: 0,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap;
-  use crate::proof_stream::ProofStream;
+  use crate::proof_stream::{DefaultProofStream, ProofStream};
   use crate::utils::stringify::Stringify;
 
   #[test]
@@ -119,7 +121,7 @@ mod tests {
       }
     }
 
-    let mut proof_stream = ProofStream::<SomeObjects>::new();
+    let mut proof_stream = DefaultProofStream::<SomeObjects>::new();
 
     assert_eq!(proof_stream.fiat_shamir_prover(64).to_hex(), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c");
 

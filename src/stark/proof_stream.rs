@@ -154,5 +154,3 @@ impl Stringify for &[StarkProofStreamEnum<'_>] {
         format!("{};{}", field.map(|f| f.to_string()).unwrap_or("_".to_string()), str)
     }
 }
-
-pub type StarkProofStream<'a> = crate::proof_stream::ProofStream<StarkProofStreamEnum<'a>>;

@@ -7,12 +7,13 @@ use crate::field::polynomial::Polynomial;
 use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
-use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
+use crate::proof_stream::{DefaultProofStream, ProofStream};
+use crate::stark::proof_stream::StarkProofStreamEnum;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 
 pub struct Stark<'a> {
-    field: &'a Field,
+    pub(crate) field: &'a Field,
     expansion_factor: usize,
     num_collinearity_checks: usize,
     security_level: usize,
@@ -26,7 +27,7 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deserialize_proof_stream(&self, bytes: &Bytes) -> StarkProofStream {
+    pub fn deser_default_proof_stream(&self, bytes: &Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
         let str = String::from_utf8_lossy(bytes.bytes());
         let split = str
             .split_once(';');
@@ -47,7 +48,7 @@ impl<'a> Stark<'a> {
             vec![]
         };
 
-        StarkProofStream::from(v)
+        DefaultProofStream::from(v)
     }
 }
 
@@ -241,12 +242,12 @@ impl<'a> Stark<'a> {
             .collect()
     }
 
-    pub fn prove<'m>(
+    pub fn prove<'m, PS: ProofStream<StarkProofStreamEnum<'m>>>(
         &'m self,
         trace: Vec<Vec<FieldElement<'m>>>,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
-        mut proof_stream: &mut StarkProofStream<'m>,
+        mut proof_stream: &mut PS,
     ) -> Bytes {
         let mut thread_rng = thread_rng();
 
@@ -429,7 +430,7 @@ impl<'a> Stark<'a> {
             let combined_codeword = combination.evaluate_domain(&fri_domain);
 
             // prove low degree of combination polynomial
-            let mut indices = self.fri.prove(&combined_codeword, &mut proof_stream);
+            let mut indices = self.fri.prove(&combined_codeword, proof_stream);
             indices.sort();
             indices
         };
@@ -466,14 +467,12 @@ impl<'a> Stark<'a> {
         proof_stream.serialize()
     }
 
-    pub fn verify<'m> (
-        &self,
-        proof: Bytes,
+    pub fn verify<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
+        &'m self,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
+        mut proof_stream: PS,
     ) -> Result<(), String> {
-        let mut proof_stream = self.deserialize_proof_stream(&proof);
-
         // infer trace length from boundary conditions
         let original_trace_length = 1 + boundary
             .iter()
@@ -677,7 +676,8 @@ impl<'a> Stark<'a> {
 mod tests {
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
-    use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
+    use crate::proof_stream::{DefaultProofStream, ProofStream};
+    use crate::stark::proof_stream::StarkProofStreamEnum;
     use crate::stark::stark::Stark;
     use crate::utils::bytes::Bytes;
 
@@ -693,7 +693,7 @@ mod tests {
             2, // num_cycles,
             2, // transition_constraints_degree,
         );
-        let stream = StarkProofStream::from(vec![
+        let stream = DefaultProofStream::from(vec![
             StarkProofStreamEnum::Root(Bytes::new(vec![0x49,0x6e,0x20,0x74])),
             StarkProofStreamEnum::Codeword(vec![FieldElement::new(&field, 20), FieldElement::new(&field, 100)]),
             StarkProofStreamEnum::Path(vec![Bytes::new(vec![0x49,0x6e,0x20,0x74]), Bytes::new(vec![0x1,0x6b,0xfe,0x25])]),
@@ -703,7 +703,7 @@ mod tests {
 
         let serialized = stream.serialize();
 
-        let deserialized = stark.deserialize_proof_stream(&serialized);
+        let deserialized = stark.deser_default_proof_stream(&serialized);
         assert_eq!(stream, deserialized);
     }
 }

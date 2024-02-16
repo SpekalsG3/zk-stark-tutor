@@ -4,7 +4,8 @@ use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::merkle_root::MerkleRoot;
-use crate::stark::proof_stream::{StarkProofStream, StarkProofStreamEnum};
+use crate::proof_stream::ProofStream;
+use crate::stark::proof_stream::StarkProofStreamEnum;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 
@@ -110,11 +111,11 @@ impl<'a> FRI<'a> {
     indices
   }
 
-  pub fn commit (
-    &self,
-    codeword: &Vec<FieldElement<'a>>,
-    proof_stream: &mut StarkProofStream<'a>,
-  ) -> Vec<Vec<FieldElement<'a>>> {
+  pub fn commit<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
+    &'m self,
+    codeword: &Vec<FieldElement<'m>>,
+    proof_stream: &mut PS,
+  ) -> Vec<Vec<FieldElement<'m>>> {
     let one = self.field.one();
     let two_inv = FieldElement::new(self.field, 2).inverse();
     let mut omega = self.omega;
@@ -175,12 +176,12 @@ impl<'a> FRI<'a> {
     codewords
   }
 
-  pub fn query (
+  pub fn query<PS: ProofStream<StarkProofStreamEnum<'a>>> (
     &self,
     codeword_current: &[FieldElement<'a>],
     codeword_next: &[FieldElement<'a>],
     indices_c: &[usize],
-    proof_stream: &mut StarkProofStream<'a>,
+    proof_stream: &mut PS,
   ) -> Vec<usize> {
     // infer a and b indices
     let indices_a = indices_c.to_vec();
@@ -211,10 +212,10 @@ impl<'a> FRI<'a> {
     indices_ab
   }
 
-  pub fn prove (
-    &self,
-    codeword: &Vec<FieldElement<'a>>,
-    proof_stream: &mut StarkProofStream<'a>,
+  pub fn prove<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
+    &'m self,
+    codeword: &Vec<FieldElement<'m>>,
+    proof_stream: &mut PS,
   ) -> Vec<usize> {
     assert_eq!(
       self.domain_length,
@@ -251,9 +252,9 @@ impl<'a> FRI<'a> {
     top_level_indices
   }
 
-  pub fn verify (
+  pub fn verify<PS: ProofStream<StarkProofStreamEnum<'a>>> (
     &self,
-    proof_stream: &mut StarkProofStream<'a>,
+    proof_stream: &mut PS,
     polynomial_values: &mut Vec<(usize, FieldElement<'a>)>,
   ) -> Result<(), String> {
     let mut omega = self.omega;
@@ -410,6 +411,7 @@ impl<'a> FRI<'a> {
 #[cfg(test)]
 mod tests {
   use crate::field::field::FIELD_PRIME;
+  use crate::proof_stream::DefaultProofStream;
   use super::*;
 
   #[test]
@@ -481,7 +483,7 @@ mod tests {
 
     let codeword = polynomial.evaluate_domain(&domain);
 
-    let mut proof_stream = StarkProofStream::new();
+    let mut proof_stream = DefaultProofStream::new();
 
     println!("proving...");
     // todo: return proofstream
@@ -510,7 +512,7 @@ mod tests {
             *i = field.zero()
           });
     }
-    let mut proof_stream = StarkProofStream::new();
+    let mut proof_stream = DefaultProofStream::new();
 
     fri.prove(&codeword, &mut proof_stream);
 
