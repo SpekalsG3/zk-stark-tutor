@@ -14,40 +14,28 @@ pub enum StarkProofStreamEnum<'a> {
 }
 
 impl<'a> StarkProofStreamEnum<'a> {
-    pub fn from_bytes(b: Bytes, field: &'a Field) -> Self {
-        let mut b = b.bytes();
-
-        let mut code = [0; 1];
-        b.read_exact(&mut code).unwrap();
-
-        let mut size = [0; 64 / 8];
-        b.read_exact(&mut size).unwrap();
-        let size = usize::from_be_bytes(size);
-
-        let b = {
-            let mut el = Vec::with_capacity(size);
-            b.read_exact(&mut el).unwrap();
-            el
-        };
-
-        match code[0] {
-            0 => StarkProofStreamEnum::Root(Bytes::from(b)),
-            1 => StarkProofStreamEnum::Codeword(
-                b
-                    .chunks(u128::BITS as usize / 8)
-                    .map(|v| u128::from_be_bytes(v.try_into().expect("incorrect size")))
-                    .map(|v| FieldElement::new(&field, v))
-                    .collect()
-            ),
+    pub fn from_bytes(code: u8, b: Bytes, field: &'a Field) -> Self {
+        match code {
+            0 => StarkProofStreamEnum::Root(b),
+            1 => {
+                let mut b = b.bytes();
+                StarkProofStreamEnum::Codeword(
+                    b
+                        .chunks(u128::BITS as usize / 8)
+                        .map(|v| u128::from_be_bytes(v.try_into().expect("incorrect size")))
+                        .map(|v| FieldElement::new(&field, v))
+                        .collect()
+                )
+            },
             2 => {
                 let mut path = vec![];
 
-                let mut b = b.as_slice();
+                let mut b = b.bytes();
                 let mut size = [0; 64 / 8];
-                while let Ok(_) = b.read(&mut size) {
+                while let Ok(_) = b.read_exact(&mut size) {
                     let size = usize::from_be_bytes(size.try_into().expect("incorrect size"));
-                    let mut el = Vec::with_capacity(size);
-                    b.read(&mut el).unwrap();
+                    let mut el = vec![0; size];
+                    b.read_exact(&mut el).unwrap();
 
                     path.push(Bytes::new(el));
                 }
@@ -55,6 +43,7 @@ impl<'a> StarkProofStreamEnum<'a> {
                 StarkProofStreamEnum::Path(path)
             },
             3 => {
+                let mut b = b.bytes();
                 let mut iter = b
                     .chunks(u128::BITS as usize / 8)
                     .map(|v| u128::from_be_bytes(v.try_into().expect("incorrect size")))
@@ -66,6 +55,7 @@ impl<'a> StarkProofStreamEnum<'a> {
                 ))
             },
             4 => {
+                let mut b = b.bytes();
                 StarkProofStreamEnum::Value(
                     FieldElement::new(&field, u128::from_be_bytes(b.try_into().expect("incorrect size")))
                 )
@@ -85,7 +75,7 @@ impl<'a> StarkProofStreamEnum<'a> {
             }
             StarkProofStreamEnum::Codeword(c) => {
                 let mut field = None;
-                let str = digest_vec(&c, |fe| {
+                let b = digest_vec(&c, |fe| {
                     if let Some(field) = field {
                         if fe.field != field {
                             panic!("codeword elements in different fields")
@@ -97,7 +87,7 @@ impl<'a> StarkProofStreamEnum<'a> {
                 });
                 (
                     1,
-                    str,
+                    b,
                     field,
                 )
             }
@@ -171,7 +161,7 @@ impl<'a> StarkProofStreamEnum<'a> {
 impl Digest for &[StarkProofStreamEnum<'_>] {
     fn digest<'m>(&'m self) -> Bytes {
         let mut field = None;
-        digest_vec(self, |pse| {
+        let bytes = digest_vec(self, |pse| {
             let (code, bytes, f) = pse.to_bytes();
             if let Some(f) = f {
                 if let Some(field) = field {
@@ -183,11 +173,18 @@ impl Digest for &[StarkProofStreamEnum<'_>] {
                 }
             }
 
-            let bytes_size = bytes.bytes().len().to_be_bytes();
-            let mut v = Vec::with_capacity(1 + bytes_size.len());
+            let bytes = bytes.bytes();
+            let bytes_size = bytes.len().to_be_bytes();
+            let mut v = Vec::with_capacity(1 + bytes_size.len() + bytes.len());
             v.push(code);
             v.extend(bytes_size);
-            Bytes::new(v) + bytes
-        })
+            v.extend(bytes);
+
+            Bytes::new(v)
+        });
+
+        Bytes::new(
+            field.map(|fe| fe.order).unwrap_or(0).to_be_bytes().to_vec()
+        ) + bytes
     }
 }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::io::Read;
 use rand::{RngCore, thread_rng};
 use crate::crypto::shake256::PROOF_BYTES;
 use crate::field::field::Field;
@@ -27,8 +28,43 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deser_default_proof_stream(&self, bytes: Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
-        unimplemented!()
+    pub fn deser_default_proof_stream(&self, bytes: &mut Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
+        let mut b = bytes.bytes();
+
+        {
+            let mut order = [0; 128 / 8];
+            b.read_exact(&mut order).unwrap();
+            let order = u128::from_be_bytes(order);
+            if order != 0 {
+                if order != self.field.order {
+                    panic!("serialized field differs from Stark's field");
+                }
+            }
+        };
+
+        let mut items = vec![];
+        loop {
+            let mut code = [0; 1];
+            if let Err(_) = b.read_exact(&mut code) {
+                break
+            };
+
+            let el = {
+                let mut size = [0; 64 / 8];
+                b.read_exact(&mut size).unwrap();
+                let size = usize::from_be_bytes(size);
+
+                let mut el = vec![0; size];
+                b.read_exact(&mut el).unwrap();
+
+                Bytes::new(el)
+            };
+
+            let item = StarkProofStreamEnum::from_bytes(code[0], el, self.field);
+            items.push(item)
+        }
+
+        DefaultProofStream::from(items)
     }
 }
 
@@ -681,9 +717,9 @@ mod tests {
             StarkProofStreamEnum::Value(FieldElement::new(&field, 2)),
         ]);
 
-        let serialized = stream.digest();
+        let mut serialized = stream.digest();
 
-        let deserialized = stark.deser_default_proof_stream(serialized);
+        let deserialized = stark.deser_default_proof_stream(&mut serialized);
         assert_eq!(stream, deserialized);
     }
 }
