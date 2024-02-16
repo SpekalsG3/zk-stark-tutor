@@ -1,7 +1,7 @@
 use crate::crypto::blake2b512::blake2b512;
 use crate::crypto::shake256::shake256;
 use crate::proof_stream::{DefaultProofStream, ProofStream};
-use crate::stark::proof_stream::StarkProofStreamEnum;
+use crate::stark::proof_stream_enum::StarkProofStreamEnum;
 use crate::utils::bytes::Bytes;
 use crate::utils::digest::Digest;
 

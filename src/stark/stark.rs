@@ -9,7 +9,7 @@ use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
 use crate::proof_stream::{DefaultProofStream, ProofStream};
-use crate::stark::proof_stream::StarkProofStreamEnum;
+use crate::stark::proof_stream_enum::StarkProofStreamEnum;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 
@@ -687,7 +687,7 @@ mod tests {
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::proof_stream::{DefaultProofStream, ProofStream};
-    use crate::stark::proof_stream::StarkProofStreamEnum;
+    use crate::stark::proof_stream_enum::StarkProofStreamEnum;
     use crate::stark::stark::Stark;
     use crate::utils::bytes::Bytes;
 
