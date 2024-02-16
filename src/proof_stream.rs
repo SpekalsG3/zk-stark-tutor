@@ -1,4 +1,3 @@
-use std::io::Read;
 use crate::crypto::shake256::shake256;
 use crate::utils::bytes::Bytes;
 use crate::utils::digest::Digest;

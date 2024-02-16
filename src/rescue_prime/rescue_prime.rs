@@ -3,10 +3,10 @@ use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::m_polynomial::MPolynomial;
 
+#[allow(non_snake_case)]
 pub struct RescuePrime<'a> {
     field: &'a Field,
     pub(crate) m: usize,
-    rate: usize,
     capacity: usize,
     pub(crate) N: usize,
     alpha: u128,
@@ -79,15 +79,14 @@ impl<'a> RescuePrime<'a> {
     pub fn new (
         field: &'a Field,
         // m: usize,
-        // rate: usize,
         // capacity: usize,
+        #[allow(non_snake_case)]
         N: usize,
         alpha: u128,
     ) -> Self {
         Self {
             field,
             m: 2,
-            rate: 1,
             capacity: 1,
             N,
             alpha,

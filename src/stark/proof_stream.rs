@@ -18,7 +18,7 @@ impl<'a> StarkProofStreamEnum<'a> {
         match code {
             0 => StarkProofStreamEnum::Root(b),
             1 => {
-                let mut b = b.bytes();
+                let b = b.bytes();
                 StarkProofStreamEnum::Codeword(
                     b
                         .chunks(u128::BITS as usize / 8)
@@ -43,7 +43,7 @@ impl<'a> StarkProofStreamEnum<'a> {
                 StarkProofStreamEnum::Path(path)
             },
             3 => {
-                let mut b = b.bytes();
+                let b = b.bytes();
                 let mut iter = b
                     .chunks(u128::BITS as usize / 8)
                     .map(|v| u128::from_be_bytes(v.try_into().expect("incorrect size")))
@@ -55,7 +55,7 @@ impl<'a> StarkProofStreamEnum<'a> {
                 ))
             },
             4 => {
-                let mut b = b.bytes();
+                let b = b.bytes();
                 StarkProofStreamEnum::Value(
                     FieldElement::new(&field, u128::from_be_bytes(b.try_into().expect("incorrect size")))
                 )

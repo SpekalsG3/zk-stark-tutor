@@ -16,11 +16,8 @@ use crate::utils::bytes::Bytes;
 pub struct Stark<'a> {
     pub(crate) field: &'a Field,
     expansion_factor: usize,
-    num_collinearity_checks: usize,
-    security_level: usize,
     num_registers: usize,
     original_trace_length: usize,
-    transition_constraints_degree: usize,
     num_randomizers: usize,
     pub(crate) omicron: FieldElement<'a>,
     omicron_domain: Vec<FieldElement<'a>>,
@@ -98,11 +95,8 @@ impl<'a> Stark<'a> {
         Self {
             field,
             expansion_factor,
-            num_collinearity_checks,
-            security_level,
             num_registers,
             original_trace_length: num_cycles,
-            transition_constraints_degree,
             num_randomizers,
             omicron,
             omicron_domain,
@@ -263,7 +257,7 @@ impl<'a> Stark<'a> {
         trace: Vec<Vec<FieldElement<'m>>>,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
-        mut proof_stream: &mut PS,
+        proof_stream: &mut PS,
     ) -> Bytes {
         let mut thread_rng = thread_rng();
 
