@@ -21,11 +21,7 @@ impl<'a> RPSSS<'a> {
         security_level: usize,
         transition_constraints_degree: usize,
     ) -> Self {
-        let rp = RescuePrime::new(
-            field,
-            27,
-            3,
-        );
+        let rp = RescuePrime::new(field, 2, 1, 27);
         Self {
             stark: Stark::new(
                 field,

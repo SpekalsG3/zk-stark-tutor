@@ -103,19 +103,18 @@ impl<'a> Iterator for IterPermutation<'a> {
 impl<'a> RescuePrime<'a> {
     pub fn new (
         field: &'a Field,
-        // m: usize,
-        // capacity: usize,
+        _m: usize, // 2
+        _capacity: usize, // 1
         #[allow(non_snake_case)]
         N: usize, // 27
-        alpha: u128, // 3
     ) -> Self {
         Self {
             field,
             m: 2,
             capacity: 1,
             N,
-            alpha,
-            alpha_inv: field.inv(field.neg_mod(alpha)), // alpha ^ (-1)
+            alpha: 3,
+            alpha_inv: field.inv(field.neg_mod(3)), // alpha ^ (-1)
             MDS: vec![
                 vec![FieldElement::new(field, 270497897142230380135924736767050121214), FieldElement::new(field, 4)],
                 vec![FieldElement::new(field, 270497897142230380135924736767050121205), FieldElement::new(field, 13)],
@@ -153,7 +152,7 @@ impl<'a> RescuePrime<'a> {
         vec
     }
 
-    pub fn round_constants_polynomials<'m> (&'m self, omicron: FieldElement<'m>)
+    fn round_constants_polynomials<'m> (&'m self, omicron: FieldElement<'m>)
         -> (Vec<MPolynomial<'m>>, Vec<MPolynomial<'m>>) {
         let domain = (0..self.N)
             .map(|r| omicron ^ r)
@@ -230,7 +229,7 @@ mod tests {
     #[test]
     fn new() {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(&field, 27, 3);
+        let rp = RescuePrime::new(&field, 2, 1, 27);
 
         assert_eq!(rp.alpha, 3);
         assert_eq!(rp.alpha_inv, 180331931428153586757283157844700080811);
@@ -239,7 +238,7 @@ mod tests {
     #[test]
     fn hash() {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(&field, 27, 3);
+        let rp = RescuePrime::new(&field, 2, 1, 27);
 
         assert_eq!(
             rp.hash(vec![FieldElement::new(&field, 1)]),
@@ -254,7 +253,7 @@ mod tests {
     #[test]
     fn trace() {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(&field, 27, 3);
+        let rp = RescuePrime::new(&field, 2, 1, 27);
 
         let a = FieldElement::new(&field, 57322816861100832358702415967512842988);
         let b = FieldElement::new(&field, 89633745865384635541695204788332415101);
