@@ -228,13 +228,9 @@ mod tests {
     use crate::rescue_prime::rescue_prime::RescuePrime;
 
     #[test]
-    fn new () {
+    fn new() {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(
-            &field,
-            27,
-            3,
-        );
+        let rp = RescuePrime::new(&field, 27, 3);
 
         assert_eq!(rp.alpha, 3);
         assert_eq!(rp.alpha_inv, 180331931428153586757283157844700080811);
@@ -243,11 +239,7 @@ mod tests {
     #[test]
     fn hash() {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(
-            &field,
-            27,
-            3,
-        );
+        let rp = RescuePrime::new(&field, 27, 3);
 
         assert_eq!(
             rp.hash(vec![FieldElement::new(&field, 1)]),
@@ -257,5 +249,16 @@ mod tests {
             rp.hash(vec![FieldElement::new(&field, 1)]),
             vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
         );
+    }
+
+    #[test]
+    fn trace() {
+        let field = Field::new(FIELD_PRIME);
+        let rp = RescuePrime::new(&field, 27, 3);
+
+        let a = FieldElement::new(&field, 57322816861100832358702415967512842988);
+        let b = FieldElement::new(&field, 89633745865384635541695204788332415101);
+        let trace = rp.trace(vec![a]);
+        assert!(trace[0][0] == a && trace[trace.len() - 1][0] == b, "rescue prime trace does not satisfy boundary conditions");
     }
 }
