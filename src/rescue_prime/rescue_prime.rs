@@ -159,9 +159,9 @@ impl<'a> RescuePrime<'a> {
             .collect::<Vec<_>>();
 
         let left = (0..self.m)
-            .map(|r| {
+            .map(|i| {
                 let values = (0..self.N)
-                    .map(|i| self.round_constants[2 * r * self.m + i])
+                    .map(|r| self.round_constants[2 * r * self.m + i])
                     .collect::<Vec<_>>();
                 let poly = Polynomial::interpolate_domain(&domain, &values);
                 MPolynomial::lift(&poly, 0)
@@ -169,9 +169,9 @@ impl<'a> RescuePrime<'a> {
             .collect();
 
         let right = (0..self.m)
-            .map(|r| {
+            .map(|i| {
                 let values = (0..self.N)
-                    .map(|i| self.round_constants[2 * r * self.m + self.m + i])
+                    .map(|r| self.round_constants[2 * r * self.m + self.m + i])
                     .collect::<Vec<_>>();
                 let poly = Polynomial::interpolate_domain(&domain, &values);
                 MPolynomial::lift(&poly, 0)
@@ -222,9 +222,11 @@ impl<'a> RescuePrime<'a> {
 
 #[cfg(test)]
 mod tests {
+    use rand::{RngCore, thread_rng};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::rescue_prime::rescue_prime::RescuePrime;
+    use crate::utils::bytes::Bytes;
 
     #[test]
     fn new() {
@@ -259,5 +261,86 @@ mod tests {
         let b = FieldElement::new(&field, 89633745865384635541695204788332415101);
         let trace = rp.trace(vec![a]);
         assert!(trace[0][0] == a && trace[trace.len() - 1][0] == b, "rescue prime trace does not satisfy boundary conditions");
+    }
+
+    #[test]
+    fn constraints() {
+        let field = Field::new(FIELD_PRIME);
+        let rp = RescuePrime::new(&field, 2, 1, 27);
+
+        let input = vec![FieldElement::new(&field, 57322816861100832358702415967512842988)];
+        let output = rp.hash(input.clone());
+        assert_eq!(output, vec![FieldElement::new(&field, 89633745865384635541695204788332415101)]);
+
+        let output = output[0]; // currently support only one element
+
+        let mut trace = rp.trace(input.clone());
+
+        #[derive(Debug, PartialEq)]
+        enum CheckResult {
+            BoundaryError,
+            TransitionError,
+            Ok,
+        }
+        let check_constraints = |trace: &Vec<Vec<FieldElement>>| -> CheckResult {
+            for (cycle, element, value) in rp.boundary_constraints(output) {
+                if trace[cycle][element] != value {
+                    return CheckResult::BoundaryError;
+                }
+            }
+
+            let omicron = field.primitive_nth_root(1 << 119);
+            for i in 0..(trace.len() - &1) {
+                for poly in rp.transition_constraints(omicron) {
+                    let mut point = Vec::with_capacity(1 + 2 * 2 * rp.m);
+                    point.push(omicron ^ i);
+                    point.extend(&trace[i]); // prev state
+                    point.extend(&trace[i + 1]); // next state
+
+                    if poly.evaluate(&point) != field.zero() {
+                        return CheckResult::TransitionError;
+                    }
+                }
+            }
+
+            CheckResult::Ok
+        };
+
+        assert_eq!(check_constraints(&trace), CheckResult::Ok);
+
+        println!("test invalid trace");
+
+        let mut thread_rng = thread_rng();
+        let mut rand_bytes = |n: usize| {
+            let mut bytes = vec![0; n];
+            thread_rng.fill_bytes(&mut bytes);
+            bytes
+        };
+
+        let mut tests = Vec::with_capacity(10);
+        tests.push((22, 1, FieldElement::new(&field, 17274817952119230544216945715808633996)));
+        tests.resize_with(10, || {
+            loop {
+                let cycle = rand_bytes(1)[0] as usize % (rp.N + 1);
+                let register = rand_bytes(1)[0] as usize % rp.m;
+                let value = field.sample(&Bytes::new(rand_bytes(17)));
+
+                if value.is_zero() { // because zero doesn't affect the trace
+                    continue
+                }
+
+                return (cycle, register, value)
+            }
+        });
+
+        for (i, (cycle, register, value)) in tests.into_iter().enumerate() {
+            println!("test #{i}");
+
+            trace[cycle][register] = trace[cycle][register] + value;
+
+            assert_ne!(check_constraints(&trace), CheckResult::Ok, "\ncycle:\t{}\nregister:\t{}\nvalue:\t{}\n", cycle, register, value.value);
+
+            trace[cycle][register] = trace[cycle][register] - value; // reset back to valid trace
+        }
     }
 }

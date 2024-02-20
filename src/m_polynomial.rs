@@ -442,7 +442,6 @@ mod tests {
   #[test]
   fn lift () {
     let field = Field::new(FIELD_PRIME);
-    let variables = MPolynomial::variables(4, &field);
     let zero = field.zero();
     let one = field.one();
     let two = FieldElement::new(&field, 2);
