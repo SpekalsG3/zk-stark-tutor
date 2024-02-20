@@ -22,6 +22,27 @@ struct IterPermutation<'a> {
     r: usize,
 }
 
+impl<'a> IterPermutation<'a> {
+    pub fn new(
+        rescue_prime: &'a RescuePrime<'a>,
+        state: Vec<FieldElement<'a>>,
+    ) -> Self {
+        assert_eq!(state.len(), rescue_prime.capacity, "Received wrong number of input elements");
+
+        // absorb
+        let mut state = state;
+        state.extend(
+            vec![rescue_prime.field.zero(); rescue_prime.m - rescue_prime.capacity]
+        );
+
+        Self {
+            rescue_prime,
+            state,
+            r: 0,
+        }
+    }
+}
+
 impl<'a> Iterator for IterPermutation<'a> {
     type Item = ();
     fn next(&mut self) -> Option<Self::Item> {
@@ -33,19 +54,21 @@ impl<'a> Iterator for IterPermutation<'a> {
             .iter()
             .enumerate()
             // S-box - alpha exponent
-            .map(|(i, s)| (i, s.clone() ^ self.rescue_prime.alpha))
-            // matrix
             .map(|(i, s)| {
-                (
-                    i,
-                    (0..self.rescue_prime.m)
-                        .map(|j| {
-                            self.rescue_prime.MDS[i][j] * s
-                        })
-                        .reduce(|a, b| a + b)
-                        .unwrap(),
-                )
+                (i, s.clone() ^ self.rescue_prime.alpha)
             })
+            // matrix
+            .fold(
+                vec![self.rescue_prime.field.zero(); self.rescue_prime.m],
+                |mut acc, (i, s)| {
+                    for j in 0..self.rescue_prime.m {
+                        acc[j] = acc[j] + self.rescue_prime.MDS[j][i] * s
+                    }
+                    acc
+                },
+            )
+            .into_iter()
+            .enumerate()
             // constants
             .map(|(i, s)| {
                 (i, s + self.rescue_prime.round_constants[2 * self.r * self.rescue_prime.m + i])
@@ -53,22 +76,24 @@ impl<'a> Iterator for IterPermutation<'a> {
             // inverse S-box - inverse alpha exponent
             .map(|(i, s)| (i, s ^ self.rescue_prime.alpha_inv))
             // matrix
-            .map(|(i, s)| {
-                (
-                    i,
-                    (0..self.rescue_prime.m)
-                        .map(|j| {
-                            self.rescue_prime.MDS[i][j] * s
-                        })
-                        .reduce(|a, b| a + b)
-                        .unwrap(),
-                )
-            })
+            .fold(
+                vec![self.rescue_prime.field.zero(); self.rescue_prime.m],
+                |mut acc, (i, s)| {
+                    for j in 0..self.rescue_prime.m {
+                        acc[j] = acc[j] + self.rescue_prime.MDS[j][i] * s
+                    }
+                    acc
+                },
+            )
+            .into_iter()
+            .enumerate()
             // constants
             .map(|(i, s)| {
                 s + self.rescue_prime.round_constants[2 * self.r * self.rescue_prime.m + self.rescue_prime.m + i]
             })
             .collect::<Vec<_>>();
+
+        self.r += 1;
 
         Some(())
     }
@@ -81,8 +106,8 @@ impl<'a> RescuePrime<'a> {
         // m: usize,
         // capacity: usize,
         #[allow(non_snake_case)]
-        N: usize,
-        alpha: u128,
+        N: usize, // 27
+        alpha: u128, // 3
     ) -> Self {
         Self {
             field,
@@ -90,7 +115,7 @@ impl<'a> RescuePrime<'a> {
             capacity: 1,
             N,
             alpha,
-            alpha_inv: field.inv(alpha),
+            alpha_inv: field.inv(field.neg_mod(alpha)), // alpha ^ (-1)
             MDS: vec![
                 vec![FieldElement::new(field, 270497897142230380135924736767050121214), FieldElement::new(field, 4)],
                 vec![FieldElement::new(field, 270497897142230380135924736767050121205), FieldElement::new(field, 13)],
@@ -107,33 +132,17 @@ impl<'a> RescuePrime<'a> {
         }
     }
 
-    fn permutations<'m> (&'m self, input_elements: Vec<FieldElement<'m>>) -> IterPermutation<'m> {
-        assert_eq!(input_elements.len(), self.capacity, "Received wrong number of input elements");
-
-        // absorb
-        let mut state = input_elements;
-        state.extend(
-            vec![self.field.zero(); self.m - self.capacity]
-        );
-
-        IterPermutation {
-            state,
-            r: 0,
-            rescue_prime: self,
-        }
-    }
-
     pub fn hash<'m> (&'m self, input_elements: Vec<FieldElement<'m>>) -> Vec<FieldElement<'m>> {
-        let mut iter = self.permutations(input_elements);
+        let mut iter = IterPermutation::new(self, input_elements);
         iter.by_ref().last().unwrap();
 
         // squeeze
-        iter.state.truncate(self.m);
+        iter.state.truncate(self.capacity);
         iter.state.to_vec()
     }
 
     pub fn trace<'m> (&'m self, input_elements: Vec<FieldElement<'m>>) -> Vec<Vec<FieldElement<'m>>> {
-        let mut iter = self.permutations(input_elements);
+        let mut iter = IterPermutation::new(self, input_elements);
 
         let mut vec = Vec::with_capacity(self.N + 1);
         vec.push(iter.state.clone());
@@ -209,5 +218,44 @@ impl<'a> RescuePrime<'a> {
             (0, 1, self.field.zero()), // at start, capacity is zero
             (self.N, 0, output_element), // at end, rate part is the given output element
         ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::field::field::{Field, FIELD_PRIME};
+    use crate::field::field_element::FieldElement;
+    use crate::rescue_prime::rescue_prime::RescuePrime;
+
+    #[test]
+    fn new () {
+        let field = Field::new(FIELD_PRIME);
+        let rp = RescuePrime::new(
+            &field,
+            27,
+            3,
+        );
+
+        assert_eq!(rp.alpha, 3);
+        assert_eq!(rp.alpha_inv, 180331931428153586757283157844700080811);
+    }
+
+    #[test]
+    fn hash() {
+        let field = Field::new(FIELD_PRIME);
+        let rp = RescuePrime::new(
+            &field,
+            27,
+            3,
+        );
+
+        assert_eq!(
+            rp.hash(vec![FieldElement::new(&field, 1)]),
+            vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
+        );
+        assert_eq!(
+            rp.hash(vec![FieldElement::new(&field, 1)]),
+            vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
+        );
     }
 }
