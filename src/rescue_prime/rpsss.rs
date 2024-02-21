@@ -57,13 +57,10 @@ impl<'a> RPSSS<'a> {
 
     fn stark_prove<'m> (
         &'m self,
-        input_elements: Vec<FieldElement<'m>>,
+        input_elements: FieldElement<'m>,
         mut proof_stream: SignatureProofStream<'m>,
     ) -> Bytes {
-        assert_eq!(input_elements.len(), 1, "Currently don't support more than 1 input element");
-
         let output_element = self.rp.hash(input_elements.clone());
-        let output_element = output_element[0]; // todo: remove
         let trace = self.rp.trace(input_elements);
 
         let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
@@ -82,16 +79,16 @@ impl<'a> RPSSS<'a> {
         self.stark.verify::<SignatureProofStream>(&transition_constraints, &boundary_constraints, proof_stream)
     }
 
-    pub fn keygen<'m>(&'m self) -> (FieldElement<'m>, Vec<FieldElement<'m>>) {
+    pub fn keygen<'m>(&'m self) -> (FieldElement<'m>, FieldElement<'m>) {
         let mut thread_rng = thread_rng();
         let mut bytes = vec![0; 17]; // todo: shouldn't 17 be self.num_colinearity_tests?
         thread_rng.fill_bytes(&mut bytes);
         let sk = self.stark.field.sample(&Bytes::from(bytes));
-        let pk = self.rp.hash(vec![sk]);
+        let pk = self.rp.hash(sk);
         (sk, pk)
     }
 
-    pub fn sign<'m, T: Into<Bytes>>(&'m self, sk: Vec<FieldElement<'m>>, document: T) -> Bytes {
+    pub fn sign<'m, T: Into<Bytes>>(&'m self, sk: FieldElement<'m>, document: T) -> Bytes {
         let sps = SignatureProofStream::new(document);
         self.stark_prove(sk, sps)
     }

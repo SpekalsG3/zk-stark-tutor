@@ -110,7 +110,7 @@ impl<'a> Stark<'a> {
         }
     }
 
-    pub fn transition_degree_bounds(
+    fn transition_degree_bounds(
         &self,
         transition_constraints: &[MPolynomial],
     ) -> Vec<u128> {
@@ -156,7 +156,7 @@ impl<'a> Stark<'a> {
         res
     }
 
-    pub fn transition_quotient_degree_bounds(
+    fn transition_quotient_degree_bounds(
         &self,
         transition_constraints: &[MPolynomial],
     ) -> Vec<u128> {
@@ -166,7 +166,7 @@ impl<'a> Stark<'a> {
             .collect()
     }
 
-    pub fn max_degree(
+    fn max_degree(
         &self,
         transition_constraints: &[MPolynomial],
     ) -> u128 {
@@ -182,12 +182,12 @@ impl<'a> Stark<'a> {
         (1 << BitIter::from(md).count()) - 1
     }
 
-    pub fn transition_zerofier(&self) -> Polynomial {
+    fn transition_zerofier(&self) -> Polynomial {
         let domain = &self.omicron_domain[0..self.original_trace_length-1];
         Polynomial::zerofier_domain(domain)
     }
 
-    pub fn boundary_zerofiers(
+    fn boundary_zerofiers(
         &self,
         boundary: &[(usize, usize, FieldElement)],
     ) -> Vec<Polynomial> {
@@ -203,7 +203,7 @@ impl<'a> Stark<'a> {
             .collect()
     }
 
-    pub fn boundary_interpolants<'m>(
+    fn boundary_interpolants<'m>(
         &'m self,
         boundary: &[(usize, usize, FieldElement<'m>)],
     ) -> Vec<Polynomial> {
@@ -226,7 +226,7 @@ impl<'a> Stark<'a> {
             .collect()
     }
 
-    pub fn boundary_quotient_degree_bounds(
+    fn boundary_quotient_degree_bounds(
         &self,
         randomized_trace_length: usize,
         boundary: &[(usize, usize, FieldElement)],
@@ -238,7 +238,7 @@ impl<'a> Stark<'a> {
             .collect()
     }
 
-    pub fn sample_weights(
+    fn sample_weights(
         &self,
         number: usize,
         randomness: &Bytes,
@@ -687,6 +687,7 @@ mod tests {
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::proof_stream::{DefaultProofStream, ProofStream};
+    use crate::rescue_prime::rescue_prime::RescuePrime;
     use crate::stark::proof_stream_enum::StarkProofStreamEnum;
     use crate::stark::stark::Stark;
     use crate::utils::bytes::Bytes;

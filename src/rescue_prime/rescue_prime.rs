@@ -131,17 +131,17 @@ impl<'a> RescuePrime<'a> {
         }
     }
 
-    pub fn hash<'m> (&'m self, input_elements: Vec<FieldElement<'m>>) -> Vec<FieldElement<'m>> {
-        let mut iter = IterPermutation::new(self, input_elements);
+    pub fn hash<'m> (&'m self, input_elements: FieldElement<'m>) -> FieldElement<'m> {
+        let mut iter = IterPermutation::new(self, vec![input_elements]);
         iter.by_ref().last().unwrap();
 
         // squeeze
         iter.state.truncate(self.capacity);
-        iter.state.to_vec()
+        iter.state[0]
     }
 
-    pub fn trace<'m> (&'m self, input_elements: Vec<FieldElement<'m>>) -> Vec<Vec<FieldElement<'m>>> {
-        let mut iter = IterPermutation::new(self, input_elements);
+    pub fn trace<'m> (&'m self, input_elements: FieldElement<'m>) -> Vec<Vec<FieldElement<'m>>> {
+        let mut iter = IterPermutation::new(self, vec![input_elements]);
 
         let mut vec = Vec::with_capacity(self.N + 1);
         vec.push(iter.state.clone());
@@ -243,11 +243,11 @@ mod tests {
         let rp = RescuePrime::new(&field, 2, 1, 27);
 
         assert_eq!(
-            rp.hash(vec![FieldElement::new(&field, 1)]),
+            rp.hash(FieldElement::new(&field, 1)),
             vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
         );
         assert_eq!(
-            rp.hash(vec![FieldElement::new(&field, 1)]),
+            rp.hash(FieldElement::new(&field, 1)),
             vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
         );
     }
@@ -259,7 +259,7 @@ mod tests {
 
         let a = FieldElement::new(&field, 57322816861100832358702415967512842988);
         let b = FieldElement::new(&field, 89633745865384635541695204788332415101);
-        let trace = rp.trace(vec![a]);
+        let trace = rp.trace(a);
         assert!(trace[0][0] == a && trace[trace.len() - 1][0] == b, "rescue prime trace does not satisfy boundary conditions");
     }
 
@@ -268,7 +268,7 @@ mod tests {
         let field = Field::new(FIELD_PRIME);
         let rp = RescuePrime::new(&field, 2, 1, 27);
 
-        let input = vec![FieldElement::new(&field, 57322816861100832358702415967512842988)];
+        let input = FieldElement::new(&field, 57322816861100832358702415967512842988);
         let output = rp.hash(input.clone());
         assert_eq!(output, vec![FieldElement::new(&field, 89633745865384635541695204788332415101)]);
 
