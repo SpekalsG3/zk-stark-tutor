@@ -1,8 +1,9 @@
+use std::fmt::Debug;
 use crate::crypto::shake256::shake256;
 use crate::utils::bytes::Bytes;
 use crate::utils::digest::Digest;
 
-pub trait ProofStream<T> {
+pub trait ProofStream<T>: Debug {
   fn digest(&self) -> Bytes;
   fn fiat_shamir_prover (&self, num_bytes: usize) -> Bytes;
   fn fiat_shamir_verifier (&self, num_bytes: usize) -> Bytes;
@@ -22,7 +23,7 @@ impl<T: PartialEq> PartialEq for DefaultProofStream<T> {
   }
 }
 
-impl<T> ProofStream<T> for DefaultProofStream<T>
+impl<T: Debug> ProofStream<T> for DefaultProofStream<T>
   where
       T: Clone,
       for<'a> &'a[T]: Digest,

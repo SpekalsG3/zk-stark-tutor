@@ -1,11 +1,26 @@
 use std::cmp::max;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, BitXor, Div, Mul, Neg, Rem, Sub};
 use crate::field::field_element::FieldElement;
 use crate::utils::bit_iter::BitIter;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd)]
 pub struct Polynomial<'a> {
   pub coefficients: Vec<FieldElement<'a>>,
+}
+
+impl Debug for Polynomial<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    f.write_str("[")?;
+    let mut iter = self.coefficients.iter();
+    if let Some(c) = iter.next() {
+      write!(f, "{:?}", c)?;
+    }
+    while let Some(c) = iter.next() {
+      write!(f, ", {:?}", c)?;
+    }
+    f.write_str("]")
+  }
 }
 
 impl<'a> Polynomial<'a> {

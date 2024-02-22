@@ -5,6 +5,7 @@ use crate::stark::proof_stream_enum::StarkProofStreamEnum;
 use crate::utils::bytes::Bytes;
 use crate::utils::digest::Digest;
 
+#[derive(Debug)]
 pub struct SignatureProofStream<'a> {
     pub(crate) ps: DefaultProofStream<StarkProofStreamEnum<'a>>,
     pub(crate) prefix: Bytes,

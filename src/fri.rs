@@ -36,7 +36,7 @@ impl<'a> FRI<'a> {
     }
   }
 
-  pub fn num_rounds (&self) -> usize {
+  fn num_rounds (&self) -> usize {
     let mut codeword_length = self.domain_length;
     let mut num_rounds = 0;
 
@@ -81,7 +81,7 @@ impl<'a> FRI<'a> {
     res % size
   }
 
-  pub fn sample_indices (
+  fn sample_indices (
     &self,
     seed: Bytes,
     size: usize,
@@ -111,7 +111,7 @@ impl<'a> FRI<'a> {
     indices
   }
 
-  pub fn commit<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
+  fn commit<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
     &'m self,
     codeword: &Vec<FieldElement<'m>>,
     proof_stream: &mut PS,
@@ -176,7 +176,7 @@ impl<'a> FRI<'a> {
     codewords
   }
 
-  pub fn query<PS: ProofStream<StarkProofStreamEnum<'a>>> (
+  fn query<PS: ProofStream<StarkProofStreamEnum<'a>>> (
     &self,
     codeword_current: &[FieldElement<'a>],
     codeword_next: &[FieldElement<'a>],

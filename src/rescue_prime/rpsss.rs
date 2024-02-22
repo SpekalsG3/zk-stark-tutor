@@ -36,7 +36,7 @@ impl<'a> RPSSS<'a> {
         }
     }
 
-    pub fn deser_signature_proof_stream<'m> (&'m self, mut proof: &'m mut Bytes) -> SignatureProofStream<'m> {
+    pub fn deser_signature_proof_stream<'m> (&'m self, proof: Bytes) -> SignatureProofStream<'m> {
         let mut b = proof.bytes();
 
         let prefix = {
@@ -50,7 +50,7 @@ impl<'a> RPSSS<'a> {
         };
 
         SignatureProofStream {
-            ps: self.stark.deser_default_proof_stream(&mut proof),
+            ps: self.stark.deser_default_proof_stream(proof),
             prefix,
         }
     }
@@ -58,24 +58,24 @@ impl<'a> RPSSS<'a> {
     fn stark_prove<'m> (
         &'m self,
         input_elements: FieldElement<'m>,
-        mut proof_stream: SignatureProofStream<'m>,
+        proof_stream: SignatureProofStream<'m>,
     ) -> Bytes {
         let output_element = self.rp.hash(input_elements.clone());
         let trace = self.rp.trace(input_elements);
 
         let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
         let boundary_constraints = self.rp.boundary_constraints(output_element);
-        self.stark.prove(trace, &transition_constraints, &boundary_constraints, &mut proof_stream)
+        self.stark.prove(trace, &transition_constraints, &boundary_constraints, proof_stream)
     }
 
     fn stark_verify<'m>(
         &'m self,
         output_element: FieldElement<'m>,
-        mut stark_proof: Bytes,
+        stark_proof: Bytes,
     ) -> Result<(), String> {
         let boundary_constraints = self.rp.boundary_constraints(output_element);
         let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
-        let proof_stream = self.deser_signature_proof_stream(&mut stark_proof);
+        let proof_stream = self.deser_signature_proof_stream(stark_proof);
         self.stark.verify::<SignatureProofStream>(&transition_constraints, &boundary_constraints, proof_stream)
     }
 

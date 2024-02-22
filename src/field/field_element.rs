@@ -1,14 +1,21 @@
 use std::cmp::Ordering;
+use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
 use crate::field::field::Field;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
 use crate::utils::xgcd::u_xgcd;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct FieldElement<'a> {
   pub field: &'a Field,
   pub value: u128,
+}
+
+impl Debug for FieldElement<'_> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.value)
+  }
 }
 
 impl<'a> FieldElement<'a> {

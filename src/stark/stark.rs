@@ -25,7 +25,7 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deser_default_proof_stream(&self, bytes: &mut Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
+    pub fn deser_default_proof_stream(&self, bytes: Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
         let mut b = bytes.bytes();
 
         {
@@ -232,9 +232,11 @@ impl<'a> Stark<'a> {
         boundary: &[(usize, usize, FieldElement)],
     ) -> Vec<usize> {
         let randomized_trace_degree = randomized_trace_length - 1;
-        self.boundary_interpolants(boundary)
+        self.boundary_zerofiers(boundary)
             .into_iter()
-            .map(|bz| randomized_trace_degree - bz.degree().expect("Couldnt get degree of boundary zerofier"))
+            .map(|bz| {
+                randomized_trace_degree - bz.degree().expect("Couldnt get degree of boundary zerofier")
+            })
             .collect()
     }
 
@@ -257,7 +259,7 @@ impl<'a> Stark<'a> {
         trace: Vec<Vec<FieldElement<'m>>>,
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
-        proof_stream: &mut PS,
+        mut proof_stream: PS,
     ) -> Bytes {
         let mut thread_rng = thread_rng();
 
@@ -266,15 +268,15 @@ impl<'a> Stark<'a> {
             let mut trace = trace;
             let trace_len = trace.len();
 
-            trace.resize(trace_len + self.num_randomizers, Vec::with_capacity(self.num_registers));
-            for i in 0..self.num_randomizers {
-                trace[trace_len + i]
-                    .fill_with(|| {
+            trace.resize_with(trace_len + self.num_randomizers, || {
+                (0..self.num_registers)
+                    .map(|_| {
                         let mut bytes = vec![0; 17]; // todo: shouldn't 17 be self.num_colinearity_tests?
                         thread_rng.fill_bytes(&mut bytes);
                         self.field.sample(&Bytes::new(bytes))
                     })
-            };
+                    .collect()
+            });
 
             trace
         };
@@ -333,8 +335,8 @@ impl<'a> Stark<'a> {
         let boundary_quotient_codewords = {
             (0..self.num_registers)
                 .map(|s| {
-                    // SAFETY: [s] safe because trace_polynomials also size of self.num_registers
-                    let codeword = boundary_quotients[s].clone().evaluate_domain(&fri_domain);
+                    // SAFETY: [s] safe because boundary_quotients also size of self.num_registers
+                    let codeword = boundary_quotients[s].evaluate_domain(&fri_domain);
 
                     let root = MerkleRoot::commit(&codeword);
                     proof_stream.push(StarkProofStreamEnum::Root(root));
@@ -398,33 +400,32 @@ impl<'a> Stark<'a> {
         let terms = {
             let x = Polynomial::new(vec![self.field.zero(), self.field.one()]);
 
-            let mut res = Vec::with_capacity(weights.len());
-            res.push(randomizer_polynomial);
+            let mut terms = Vec::with_capacity(weights.len());
+            terms.push(randomizer_polynomial);
 
             let transition_constraints_degree = self.max_degree(&transition_constraints);
 
             let transition_quotient_degree_bounds = self.transition_quotient_degree_bounds(&transition_constraints);
             for (i, tq) in transition_quotients.iter().enumerate() {
-                res.push(tq.clone());
+                terms.push(tq.clone());
 
                 // SAFETY: [i] safe because it's the same size as `transition_quotients`
                 let shift = transition_constraints_degree - transition_quotient_degree_bounds[i];
-                res.push((x.clone() ^ shift) * tq.clone());
+                terms.push((x.clone() ^ shift) * tq.clone());
             }
 
             let boundary_quotient_degree_bounds = self.boundary_quotient_degree_bounds(trace.len(), &boundary);
             for (i, bq) in boundary_quotients.iter().enumerate() {
-                res.push(bq.clone());
+                terms.push(bq.clone());
 
                 // SAFETY: [i] safe because it's the same size as `boundary_quotients`
                 let shift = transition_constraints_degree - boundary_quotient_degree_bounds[i] as u128;
-                res.push((x.clone() ^ shift) * bq.clone());
+                terms.push((x.clone() ^ shift) * bq.clone());
             }
-
-            res
+            terms
         };
 
-        let indices = {
+        let quadrupled_indices = {
             // take weighted sum
             let combination = terms
                 .into_iter()
@@ -440,34 +441,40 @@ impl<'a> Stark<'a> {
             let combined_codeword = combination.evaluate_domain(&fri_domain);
 
             // prove low degree of combination polynomial
-            let mut indices = self.fri.prove(&combined_codeword, proof_stream);
-            indices.sort();
-            indices
-        };
-        let duplicated_indices = {
-            let mut v = Vec::with_capacity(2 * indices.len());
-            v.extend(indices.clone());
-            v.extend(
-                indices
-                    .iter()
-                    .map(|i| {
-                        (i + self.expansion_factor) % fri_domain.len()
-                    })
-            );
-            v
+            let indices = self.fri.prove(&combined_codeword, &mut proof_stream);
+
+            let duplicated_indices = indices
+                .clone()
+                .into_iter()
+                .chain(
+                    indices
+                        .iter()
+                        .map(|i| {
+                            (i + self.expansion_factor) % fri_domain.len()
+                        })
+                );
+            let mut quadrupled_indices = duplicated_indices
+                .clone()
+                .chain(
+                    duplicated_indices
+                        .map(|i| (i + (fri_domain.len() / 2)) % fri_domain.len())
+                )
+                .collect::<Vec<_>>();
+            quadrupled_indices.sort();
+            quadrupled_indices
         };
 
         // open indicated positions in the boundary quotient codewords
         for bqc in boundary_quotient_codewords {
-            for i in &duplicated_indices {
+            for i in quadrupled_indices.clone() { // has to copy i anyhow so it's more efficient to clone whole vector
                 // SAFETY: [i] is safe because bqc is size of fri_domain_length and it's much bigger than size of duplicated_indices (2*num_collinearity_checks)
-                proof_stream.push(StarkProofStreamEnum::Value(bqc[*i]));
-                let path = MerkleRoot::open(*i, &bqc);
+                proof_stream.push(StarkProofStreamEnum::Value(bqc[i]));
+                let path = MerkleRoot::open(i, &bqc);
                 proof_stream.push(StarkProofStreamEnum::Path(path));
             }
         }
         // and in the randomizer
-        for i in indices {
+        for i in quadrupled_indices {
             // SAFETY: [i] safe because fri_domain_length is much bigger then size of indices (num_collinearity_checks)
             proof_stream.push(StarkProofStreamEnum::Value(randomizer_codeword[i]));
             let path = MerkleRoot::open(i, &randomizer_codeword);
@@ -533,10 +540,8 @@ impl<'a> Stark<'a> {
                     acc
                 })
         };
-
-        // read and verify leafs, which are elements of boundary quotient codewords
-        let leafs = {
-            let duplicated_indices = indices
+        let duplicated_indices = {
+            let mut duplicated_indices = indices
                 .clone()
                 .into_iter()
                 .chain(
@@ -547,7 +552,12 @@ impl<'a> Stark<'a> {
                         })
                 )
                 .collect::<Vec<_>>();
+            duplicated_indices.sort();
+            duplicated_indices
+        };
 
+        // read and verify leafs, which are elements of boundary quotient codewords
+        let leafs = {
             boundary_quotient_roots
                 .iter()
                 .map(|bqr| {
@@ -559,7 +569,7 @@ impl<'a> Stark<'a> {
                             let accepted = MerkleRoot::verify(bqr, *i, &path, &leaf);
 
                             if !accepted {
-                                return Err("Merkle path not verified");
+                                return Err(format!("Boundary quotient root {} is not verified", i));
                             }
 
                             Ok((*i, leaf))
@@ -570,7 +580,7 @@ impl<'a> Stark<'a> {
         };
 
         // read and verify randomizer leafs
-        let randomizers = indices
+        let randomizers = duplicated_indices
             .iter()
             .map(|i| {
                 let leaf = proof_stream.pull().unwrap().expect_value();
@@ -578,7 +588,7 @@ impl<'a> Stark<'a> {
                 let accepted = MerkleRoot::verify(&randomizer_root, *i, &path, &leaf);
 
                 if !accepted {
-                    return Err("Merkle path not verified");
+                    return Err(format!("Randomizer leaf {} not verified", i));
                 }
 
                 Ok((*i, leaf))
@@ -684,6 +694,7 @@ impl<'a> Stark<'a> {
 
 #[cfg(test)]
 mod tests {
+    use rand::{RngCore, thread_rng};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::proof_stream::{DefaultProofStream, ProofStream};
@@ -712,9 +723,79 @@ mod tests {
             StarkProofStreamEnum::Value(FieldElement::new(&field, 2)),
         ]);
 
-        let mut serialized = stream.digest();
+        let serialized = stream.digest();
 
-        let deserialized = stark.deser_default_proof_stream(&mut serialized);
+        let deserialized = stark.deser_default_proof_stream(serialized);
         assert_eq!(stream, deserialized);
+    }
+
+    #[test]
+    fn stark () {
+        let field = Field::new(FIELD_PRIME);
+        let rp = RescuePrime::new(&field, 2, 1, 27);
+        let stark = Stark::new(
+            &field,
+            4, // expansion_factor,
+            2, // num_collinearity_checks,
+            2, // security_level,
+            rp.m, // num_registers,
+            rp.N + 1, // num_cycles,
+            2, // transition_constraints_degree,
+        );
+
+        let mut output_element = field.sample(&Bytes::from("deadbeef"));
+        let mut trace = vec![];
+        let mut air = vec![];
+        let mut boundary = vec![];
+
+        for trial in 0..20 {
+            let input_element = output_element.clone();
+            println!("running trial with input: {:?}", input_element);
+            output_element = rp.hash(input_element.clone());
+
+            // prove honestly
+            println!("honest proof generation ...");
+
+            // prove
+            trace = rp.trace(input_element);
+            air = rp.transition_constraints(stark.omicron);
+            boundary = rp.boundary_constraints(output_element);
+
+            let proof = stark.prove(trace.clone(), &air, &boundary, DefaultProofStream::new());
+
+            // verify
+            let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
+
+            assert!(verdict.is_ok(), "valid stark proof fails to verify - {}", verdict.unwrap_err());
+            println!("success \\o/");
+
+            println!("verifying false claim ...");
+            // verify false claim
+            let output_element = output_element + field.one();
+            let boundary = rp.boundary_constraints(output_element);
+            let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
+
+            assert!(verdict.is_err(), "invalid stark proof verifies");
+            println!("proof rejected! \\o/");
+        }
+
+        // verify with false witness
+        println!("attempting to prove with false witness (should fail) ...");
+
+        let mut thread_rng = thread_rng();
+        let mut rand_bytes = |n: usize| {
+            let mut bytes = vec![0; n];
+            thread_rng.fill_bytes(&mut bytes);
+            bytes
+        };
+
+        let cycle = rand_bytes(1)[0] as usize % trace.len();
+        let register = rand_bytes(1)[0] as usize % rp.m;
+        let error = field.sample(&Bytes::new(rand_bytes(17)));
+
+        trace[cycle][register] = trace[cycle][register] + error;
+
+        // let proof = stark.prove(trace, &air, &boundary, DefaultProofStream::new());
+        // assert!(false, "stark.prove should have failed assertion");
     }
 }

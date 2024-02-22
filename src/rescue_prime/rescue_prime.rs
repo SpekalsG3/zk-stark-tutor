@@ -244,11 +244,11 @@ mod tests {
 
         assert_eq!(
             rp.hash(FieldElement::new(&field, 1)),
-            vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
+            FieldElement::new(&field, 244180265933090377212304188905974087294)
         );
         assert_eq!(
             rp.hash(FieldElement::new(&field, 1)),
-            vec![FieldElement::new(&field, 244180265933090377212304188905974087294)]
+            FieldElement::new(&field, 244180265933090377212304188905974087294)
         );
     }
 
@@ -270,9 +270,7 @@ mod tests {
 
         let input = FieldElement::new(&field, 57322816861100832358702415967512842988);
         let output = rp.hash(input.clone());
-        assert_eq!(output, vec![FieldElement::new(&field, 89633745865384635541695204788332415101)]);
-
-        let output = output[0]; // currently support only one element
+        assert_eq!(output, FieldElement::new(&field, 89633745865384635541695204788332415101));
 
         let mut trace = rp.trace(input.clone());
 
