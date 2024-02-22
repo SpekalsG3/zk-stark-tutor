@@ -109,14 +109,15 @@ impl<'a> RescuePrime<'a> {
         #[allow(non_snake_case)]
         N: usize, // 27
     ) -> Self {
+        let g = field.smallest_generator();
         Self {
             field,
             m: 2,
             capacity: 1,
             N,
-            alpha: 3,
-            alpha_inv: field.inv(field.neg_mod(3)), // alpha ^ (-1)
-            MDS: Self::get_mds(field, m),
+            alpha: g.value,
+            alpha_inv: field.inv(field.neg_mod(g.value)), // alpha ^ (-1)
+            MDS: Self::get_mds(g, m),
             MDS_inv: vec![
                 vec![FieldElement::new(field, 210387253332845851216830350818816760948), FieldElement::new(field, 60110643809384528919094385948233360270)],
                 vec![FieldElement::new(field, 90165965714076793378641578922350040407), FieldElement::new(field, 180331931428153586757283157844700080811)],
@@ -129,9 +130,7 @@ impl<'a> RescuePrime<'a> {
         }
     }
 
-    fn get_mds<'m>(field: &'m Field, m: usize) -> Vec<Vec<FieldElement<'m>>> {
-        let g = FieldElement::new(&field, 3); // 3 is smallest generator
-
+    fn get_mds<'m>(g: FieldElement<'m>, m: usize) -> Vec<Vec<FieldElement<'m>>> {
         let mut matrix = (0..m)
             .map(|i| {
                 (0..(2 * m))

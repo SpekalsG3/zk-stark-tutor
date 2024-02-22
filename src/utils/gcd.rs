@@ -1,4 +1,4 @@
-pub fn gcd (a: usize, b: usize) -> usize {
+pub fn gcd (a: u128, b: u128) -> u128 {
   let mut a = a;
   let mut b = b;
   while b != 0 {
@@ -18,6 +18,6 @@ mod tests {
   fn test () {
     assert_eq!(gcd(10, 5), 5);
     assert_eq!(gcd(240, 46), 2);
-    assert_eq!(gcd(3, FIELD_PRIME as usize), 1);
+    assert_eq!(gcd(3, FIELD_PRIME), 1);
   }
 }

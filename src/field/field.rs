@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::Neg;
 use crate::field::field_element::FieldElement;
 use crate::utils::bytes::Bytes;
+use crate::utils::gcd::gcd;
 use crate::utils::u512::U512;
 use crate::utils::xgcd::u_xgcd;
 
@@ -40,10 +41,17 @@ impl Field {
 impl<'a> Field {
   pub fn generator (&'a self) -> FieldElement<'a> {
     assert_eq!(self.order, FIELD_PRIME, "Do not know generator for orders other than 1+407*2^119");
-    FieldElement {
-      field: &self,
-      value: 85408008396924667383611388730472331217,
+    FieldElement::new(&self, 85408008396924667383611388730472331217) // why use this big number?
+  }
+
+  pub fn smallest_generator(&'a self) -> FieldElement<'a> {
+    // In a finite field GF(q) number of primitive elements is phi(q-1), where phi is Euler's totient function
+    // which counts number of coprime elements to q-1. Meaning it's enough to find gcd(k, q-1), where 3 <= k <= q-1
+    let mut k = 3;
+    while gcd(k, self.order-1) != 1 {
+      k += 1;
     }
+    FieldElement::new(&self, k)
   }
 
   pub fn primitive_nth_root (&'a self, n: u128) -> FieldElement<'a> {
