@@ -59,7 +59,7 @@ impl<'a> RPSSS<'a> {
         &'m self,
         input_elements: FieldElement<'m>,
         proof_stream: SignatureProofStream<'m>,
-    ) -> Bytes {
+    ) -> Result<Bytes, String> {
         let output_element = self.rp.hash(input_elements.clone());
         let trace = self.rp.trace(input_elements);
 
@@ -88,7 +88,7 @@ impl<'a> RPSSS<'a> {
         (sk, pk)
     }
 
-    pub fn sign<'m, T: Into<Bytes>>(&'m self, sk: FieldElement<'m>, document: T) -> Bytes {
+    pub fn sign<'m, T: Into<Bytes>>(&'m self, sk: FieldElement<'m>, document: T) -> Result<Bytes, String> {
         let sps = SignatureProofStream::new(document);
         self.stark_prove(sk, sps)
     }

@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
 use crate::field::field::Field;
 use crate::utils::bit_iter::BitIter;

@@ -260,7 +260,7 @@ impl<'a> Stark<'a> {
         transition_constraints: &[MPolynomial<'m>],
         boundary: &[(usize, usize, FieldElement<'m>)],
         mut proof_stream: PS,
-    ) -> Bytes {
+    ) -> Result<Bytes, String> {
         let mut thread_rng = thread_rng();
 
         // concatenate randomizers - induces zero-knowledge
@@ -321,9 +321,9 @@ impl<'a> Stark<'a> {
                     let trace_polynomial = trace_polynomials[s].clone();
                     let boundary_polynomial = trace_polynomial - interpolant;
 
-                    boundary_polynomial / zerofier
+                    boundary_polynomial.div(zerofier)
                 })
-                .collect::<Vec<_>>()
+                .collect::<Result<Vec<_>, _>>()?
         };
 
         // commit to boundary_quotients
@@ -366,9 +366,9 @@ impl<'a> Stark<'a> {
                     let transition_polynomial = a.evaluate_symbolic(&point);
 
                     // divide out zerofier
-                    transition_polynomial / self.transition_zerofier()
+                    transition_polynomial.div(self.transition_zerofier())
                 })
-                .collect::<Vec<_>>()
+                .collect::<Result<Vec<_>, _>>()?
         };
 
         // commit to randomizer polynomial
@@ -391,11 +391,20 @@ impl<'a> Stark<'a> {
             1 + 2 * transition_quotients.len() + 2 * boundary_quotients.len(),
             &proof_stream.fiat_shamir_prover(PROOF_BYTES),
         );
-        assert_eq!(
-            transition_quotients.iter().map(|tq| tq.degree().expect("Failed to get degree of transition quotient") as u128).collect::<Vec<_>>(),
-            self.transition_quotient_degree_bounds(&transition_constraints),
-            "transition quotient degrees do not match with expectation",
-        );
+        if
+            transition_quotients
+                .iter()
+                .map(|tq| tq
+                    .degree()
+                    .map_or_else(
+                        || Err("Failed to get degree of transition quotient"),
+                        |d| Ok(d as u128),
+                    )
+                )
+                .collect::<Result<Vec<_>, _>>()?
+            != self.transition_quotient_degree_bounds(&transition_constraints) {
+            return Err("transition quotient degrees do not match with expectation".to_string())
+        }
 
         let terms = {
             let x = Polynomial::new(vec![self.field.zero(), self.field.one()]);
@@ -481,7 +490,7 @@ impl<'a> Stark<'a> {
             proof_stream.push(StarkProofStreamEnum::Path(path));
         }
 
-        proof_stream.digest()
+        Ok(proof_stream.digest())
     }
 
     pub fn verify<'m, PS: ProofStream<StarkProofStreamEnum<'m>>> (
@@ -750,7 +759,7 @@ mod tests {
 
         for trial in 0..20 {
             let input_element = output_element.clone();
-            println!("running trial with input: {:?}", input_element);
+            println!("running trial #{} with input: {:?}", trial, input_element);
             output_element = rp.hash(input_element.clone());
 
             // prove honestly
@@ -762,6 +771,8 @@ mod tests {
             boundary = rp.boundary_constraints(output_element);
 
             let proof = stark.prove(trace.clone(), &air, &boundary, DefaultProofStream::new());
+            assert!(proof.is_ok(), "Failed to construct proof - {}", proof.unwrap_err());
+            let proof = proof.unwrap();
 
             // verify
             let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
@@ -776,7 +787,7 @@ mod tests {
             let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
 
             assert!(verdict.is_err(), "invalid stark proof verifies");
-            println!("proof rejected! \\o/");
+            println!("proof with invalid boundary rejected! \\o/");
         }
 
         // verify with false witness
@@ -795,7 +806,7 @@ mod tests {
 
         trace[cycle][register] = trace[cycle][register] + error;
 
-        // let proof = stark.prove(trace, &air, &boundary, DefaultProofStream::new());
-        // assert!(false, "stark.prove should have failed assertion");
+        let proof = stark.prove(trace, &air, &boundary, DefaultProofStream::new());
+        assert!(proof.is_err(), "stark.prove should have failed with invalid trace");
     }
 }

@@ -1,5 +1,5 @@
 use std::cmp::max;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::ops::{Add, BitXor, Div, Mul, Neg, Rem, Sub};
 use crate::field::field_element::FieldElement;
 use crate::utils::bit_iter::BitIter;
@@ -228,6 +228,23 @@ impl<'a> Polynomial<'a> {
     };
     Some((quotient, remainder))
   }
+
+// impl<'a> Div for Polynomial<'a> {
+//   type Output = Self;
+  pub fn div (self, rhs: Self) -> Result<Self, String> {
+    let res = Polynomial::divide_with_rem(self, rhs);
+    if res.is_none() {
+      return Err("Denominator is empty or zero".to_string());
+    }
+
+    let (q, r) = res.unwrap();
+    if !r.is_zero() {
+      return Err("Cannot perform true division because remained is not zero".to_string());
+    }
+
+    Ok(q)
+  }
+// }
 }
 
 impl<'a> Neg for Polynomial<'a> {
@@ -303,19 +320,6 @@ impl<'a> Mul for Polynomial<'a> {
     Polynomial {
       coefficients: buf,
     }
-  }
-}
-
-impl<'a> Div for Polynomial<'a> {
-  type Output = Self;
-  fn div (self, rhs: Self) -> Self::Output {
-    let res = Polynomial::divide_with_rem(self, rhs);
-    assert!(res.is_some(), "Denominator is empty or zero");
-
-    let (q, r) = res.unwrap();
-    assert!(r.is_zero(), "Cannot perform true division because remained is not zero");
-
-    q
   }
 }
 
