@@ -2,6 +2,7 @@ use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
 use crate::m_polynomial::MPolynomial;
+use crate::utils::matrix::{rref, transpose};
 
 #[allow(non_snake_case)]
 pub struct RescuePrime<'a> {
@@ -103,7 +104,7 @@ impl<'a> Iterator for IterPermutation<'a> {
 impl<'a> RescuePrime<'a> {
     pub fn new (
         field: &'a Field,
-        _m: usize, // 2
+        m: usize, // 2
         _capacity: usize, // 1
         #[allow(non_snake_case)]
         N: usize, // 27
@@ -115,10 +116,7 @@ impl<'a> RescuePrime<'a> {
             N,
             alpha: 3,
             alpha_inv: field.inv(field.neg_mod(3)), // alpha ^ (-1)
-            MDS: vec![
-                vec![FieldElement::new(field, 270497897142230380135924736767050121214), FieldElement::new(field, 4)],
-                vec![FieldElement::new(field, 270497897142230380135924736767050121205), FieldElement::new(field, 13)],
-            ],
+            MDS: Self::get_mds(field, m),
             MDS_inv: vec![
                 vec![FieldElement::new(field, 210387253332845851216830350818816760948), FieldElement::new(field, 60110643809384528919094385948233360270)],
                 vec![FieldElement::new(field, 90165965714076793378641578922350040407), FieldElement::new(field, 180331931428153586757283157844700080811)],
@@ -129,6 +127,30 @@ impl<'a> RescuePrime<'a> {
                 .map(|v| FieldElement::new(field, v))
                 .collect(),
         }
+    }
+
+    fn get_mds<'m>(field: &'m Field, m: usize) -> Vec<Vec<FieldElement<'m>>> {
+        let g = FieldElement::new(&field, 3); // 3 is smallest generator
+
+        let mut matrix = (0..m)
+            .map(|i| {
+                (0..(2 * m))
+                    .map(|j| g ^ (i * j))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        rref(&mut matrix);
+
+        let matrix = matrix
+            .into_iter()
+            .map(|row| {
+                row[m..].to_vec()
+            })
+            .collect::<Vec<_>>();
+
+        let matrix = transpose(matrix);
+
+        return matrix
     }
 
     pub fn hash<'m> (&'m self, input_elements: FieldElement<'m>) -> FieldElement<'m> {
@@ -261,6 +283,13 @@ mod tests {
         let b = FieldElement::new(&field, 89633745865384635541695204788332415101);
         let trace = rp.trace(a);
         assert!(trace[0][0] == a && trace[trace.len() - 1][0] == b, "rescue prime trace does not satisfy boundary conditions");
+    }
+
+    #[test]
+    fn get_mds () {
+        let field = Field::new(FIELD_PRIME);
+        let mds = RescuePrime::get_mds(&field, 2);
+        println!("{:?}", mds);
     }
 
     #[test]
