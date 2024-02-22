@@ -287,8 +287,11 @@ mod tests {
     #[test]
     fn get_mds () {
         let field = Field::new(FIELD_PRIME);
-        let mds = RescuePrime::get_mds(&field, 2);
-        println!("{:?}", mds);
+        let mds = RescuePrime::get_mds(field.smallest_generator(), 2);
+        assert_eq!(mds, vec![
+            vec![FieldElement::new(&field, 270497897142230380135924736767050121214), FieldElement::new(&field,  4)],
+            vec![FieldElement::new(&field, 270497897142230380135924736767050121205), FieldElement::new(&field, 13)],
+        ])
     }
 
     #[test]
