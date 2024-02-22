@@ -1,4 +1,3 @@
-use std::io::Read;
 use rand::{RngCore, thread_rng};
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
@@ -16,42 +15,23 @@ pub struct RPSSS<'a> {
 impl<'a> RPSSS<'a> {
     pub fn new (
         field: &'a Field,
-        expansion_factor: usize,
-        num_collinearity_checks: usize,
-        security_level: usize,
-        transition_constraints_degree: usize,
+        expansion_factor: usize, // 4
+        num_collinearity_checks: usize, // 64
+        security_level: usize, // >= 2 * num_collinearity_checks
+        transition_constraints_degree: usize, // 2
     ) -> Self {
         let rp = RescuePrime::new(field, 2, 1, 27);
         Self {
             stark: Stark::new(
                 field,
-                expansion_factor, // 4
-                num_collinearity_checks, // 64
-                security_level, // 2 * num_colinearity_checks
+                expansion_factor,
+                num_collinearity_checks,
+                security_level,
                 rp.m,
                 rp.N + 1,
-                transition_constraints_degree, // 3
+                transition_constraints_degree,
             ),
             rp,
-        }
-    }
-
-    pub fn deser_signature_proof_stream<'m> (&'m self, proof: Bytes) -> SignatureProofStream<'m> {
-        let mut b = proof.bytes();
-
-        let prefix = {
-            let mut prefix_size = [0; 64 / 8];
-            b.read_exact(&mut prefix_size).unwrap();
-            let prefix_size = usize::from_be_bytes(prefix_size);
-
-            let mut prefix = vec![0; prefix_size];
-            b.read_exact(&mut prefix).unwrap();
-            Bytes::new(prefix)
-        };
-
-        SignatureProofStream {
-            ps: self.stark.deser_default_proof_stream(proof),
-            prefix,
         }
     }
 
@@ -71,12 +51,11 @@ impl<'a> RPSSS<'a> {
     fn stark_verify<'m>(
         &'m self,
         output_element: FieldElement<'m>,
-        stark_proof: Bytes,
+        sps: SignatureProofStream<'m>,
     ) -> Result<(), String> {
         let boundary_constraints = self.rp.boundary_constraints(output_element);
         let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
-        let proof_stream = self.deser_signature_proof_stream(stark_proof);
-        self.stark.verify::<SignatureProofStream>(&transition_constraints, &boundary_constraints, proof_stream)
+        self.stark.verify::<SignatureProofStream>(&transition_constraints, &boundary_constraints, sps)
     }
 
     pub fn keygen<'m>(&'m self) -> (FieldElement<'m>, FieldElement<'m>) {
@@ -93,9 +72,51 @@ impl<'a> RPSSS<'a> {
         self.stark_prove(sk, sps)
     }
 
-    pub fn verify(&self, pk: Vec<FieldElement>, signature: Bytes ) -> Result<(), String> {
-        assert_eq!(pk.len(), 1, "Currently don't support more than 1 input element");
-        self.stark_verify(pk[0], signature)
+    pub fn verify<'m, T: Into<Bytes>>(&'m self, pk: FieldElement, document: T, signature: Bytes ) -> Result<(), String> {
+        let mut sps = SignatureProofStream::new(document);
+        sps.ps = self.stark.deser_independent_proof_stream(signature);
+        self.stark_verify(pk, sps)
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::time::SystemTime;
+    use crate::field::field::{Field, FIELD_PRIME};
+    use crate::rescue_prime::rpsss::RPSSS;
+    use crate::utils::bytes::Bytes;
+
+    #[test]
+    fn rpsss () {
+        let field = Field::new(FIELD_PRIME);
+        let rpsss = RPSSS::new(&field, 4, 64, 128, 2);
+
+        let time = SystemTime::now();
+        let (sk, pk) = rpsss.keygen();
+        let time = SystemTime::now().duration_since(time).unwrap();
+        println!("Generated keys in {}ms", time.as_millis());
+
+        let doc = Bytes::from("Hello, World!".as_bytes());
+        let time = SystemTime::now();
+        let signature = rpsss.sign(sk, doc.clone());
+        let time = SystemTime::now().duration_since(time).unwrap();
+        assert!(signature.is_ok(), "Failed to generate signature - {}", signature.unwrap_err());
+        println!("Generated signature in {}ms", time.as_millis());
+
+        let signature = signature.unwrap();
+        let time = SystemTime::now();
+        let is_verified = rpsss.verify(pk, doc, signature.clone());
+        let time = SystemTime::now().duration_since(time).unwrap();
+        assert!(is_verified.is_ok(), "Failed to verify signature for valid doc - {}", is_verified.unwrap_err());
+        println!("Verified signature for valid doc in {}ms", time.as_millis());
+
+        let doc = Bytes::from("Malicious document".as_bytes());
+        let time = SystemTime::now();
+        let is_verified = rpsss.verify(pk, doc, signature.clone());
+        let time = SystemTime::now().duration_since(time).unwrap();
+        assert!(is_verified.is_err(), "Shouldn't successfully verified signature for invalid doc");
+        println!("Verified signature for invalid doc in {}ms", time.as_millis());
+
+        println!("\tsize of signature in bytes: {}\n\tin kb: {}", signature.bytes().len(), signature.bytes().len() / (2_usize.pow(13)));
+    }
+}

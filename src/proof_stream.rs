@@ -12,18 +12,18 @@ pub trait ProofStream<T>: Debug {
 }
 
 #[derive(Debug)]
-pub struct DefaultProofStream<T> {
+pub struct IndependentProofStream<T> {
   pub(crate) objects: Vec<T>,
   pub(crate) read_index: usize,
 }
 
-impl<T: PartialEq> PartialEq for DefaultProofStream<T> {
+impl<T: PartialEq> PartialEq for IndependentProofStream<T> {
   fn eq(&self, other: &Self) -> bool {
     self.objects.iter().eq(other.objects.iter())
   }
 }
 
-impl<T: Debug> ProofStream<T> for DefaultProofStream<T>
+impl<T: Debug> ProofStream<T> for IndependentProofStream<T>
   where
       T: Clone,
       for<'a> &'a[T]: Digest,
@@ -64,7 +64,7 @@ impl<T: Debug> ProofStream<T> for DefaultProofStream<T>
   }
 }
 
-impl<T> DefaultProofStream<T> {
+impl<T> IndependentProofStream<T> {
   pub fn new () -> Self {
     Self::from(vec![])
   }
@@ -80,7 +80,7 @@ impl<T> DefaultProofStream<T> {
 #[cfg(test)]
 mod tests {
   use std::collections::HashMap;
-  use crate::proof_stream::{DefaultProofStream, ProofStream};
+  use crate::proof_stream::{IndependentProofStream, ProofStream};
   use crate::utils::bytes::Bytes;
   use crate::utils::digest::Digest;
 
@@ -122,7 +122,7 @@ mod tests {
       }
     }
 
-    let mut proof_stream = DefaultProofStream::<SomeObjects>::new();
+    let mut proof_stream = IndependentProofStream::<SomeObjects>::new();
 
     assert_eq!(proof_stream.fiat_shamir_prover(64).to_hex(), "ec784925b52067bce01fd820f554a34a3f8522b337f82e00ea03d3fa2b207ef9c2c1b9ed900cf2bbfcd19a232a94c6121e041615305c4155d46d52f58a8cff1c");
 

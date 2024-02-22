@@ -8,7 +8,7 @@ use crate::field::polynomial::Polynomial;
 use crate::fri::FRI;
 use crate::m_polynomial::MPolynomial;
 use crate::merkle_root::MerkleRoot;
-use crate::proof_stream::{DefaultProofStream, ProofStream};
+use crate::proof_stream::{IndependentProofStream, ProofStream};
 use crate::stark::proof_stream_enum::StarkProofStreamEnum;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
@@ -25,7 +25,7 @@ pub struct Stark<'a> {
 }
 
 impl<'a> Stark<'a> {
-    pub fn deser_default_proof_stream(&self, bytes: Bytes) -> DefaultProofStream<StarkProofStreamEnum> {
+    pub fn deser_independent_proof_stream(&self, bytes: Bytes) -> IndependentProofStream<StarkProofStreamEnum> {
         let mut b = bytes.bytes();
 
         {
@@ -61,7 +61,7 @@ impl<'a> Stark<'a> {
             items.push(item)
         }
 
-        DefaultProofStream::from(items)
+        IndependentProofStream::from(items)
     }
 }
 
@@ -706,7 +706,7 @@ mod tests {
     use rand::{RngCore, thread_rng};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
-    use crate::proof_stream::{DefaultProofStream, ProofStream};
+    use crate::proof_stream::{IndependentProofStream, ProofStream};
     use crate::rescue_prime::rescue_prime::RescuePrime;
     use crate::stark::proof_stream_enum::StarkProofStreamEnum;
     use crate::stark::stark::Stark;
@@ -724,7 +724,7 @@ mod tests {
             2, // num_cycles,
             2, // transition_constraints_degree,
         );
-        let stream = DefaultProofStream::from(vec![
+        let stream = IndependentProofStream::from(vec![
             StarkProofStreamEnum::Root(Bytes::new(vec![0x49,0x6e,0x20,0x74])),
             StarkProofStreamEnum::Codeword(vec![FieldElement::new(&field, 20), FieldElement::new(&field, 100)]),
             StarkProofStreamEnum::Path(vec![Bytes::new(vec![0x49,0x6e,0x20,0x74]), Bytes::new(vec![0x1,0x6b,0xfe,0x25])]),
@@ -734,7 +734,7 @@ mod tests {
 
         let serialized = stream.digest();
 
-        let deserialized = stark.deser_default_proof_stream(serialized);
+        let deserialized = stark.deser_independent_proof_stream(serialized);
         assert_eq!(stream, deserialized);
     }
 
@@ -770,12 +770,12 @@ mod tests {
             air = rp.transition_constraints(stark.omicron);
             boundary = rp.boundary_constraints(output_element);
 
-            let proof = stark.prove(trace.clone(), &air, &boundary, DefaultProofStream::new());
+            let proof = stark.prove(trace.clone(), &air, &boundary, IndependentProofStream::new());
             assert!(proof.is_ok(), "Failed to construct proof - {}", proof.unwrap_err());
             let proof = proof.unwrap();
 
             // verify
-            let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
+            let verdict = stark.verify(&air, &boundary, stark.deser_independent_proof_stream(proof.clone()));
 
             assert!(verdict.is_ok(), "valid stark proof fails to verify - {}", verdict.unwrap_err());
             println!("success \\o/");
@@ -784,7 +784,7 @@ mod tests {
             // verify false claim
             let output_element = output_element + field.one();
             let boundary = rp.boundary_constraints(output_element);
-            let verdict = stark.verify(&air, &boundary, stark.deser_default_proof_stream(proof.clone()));
+            let verdict = stark.verify(&air, &boundary, stark.deser_independent_proof_stream(proof.clone()));
 
             assert!(verdict.is_err(), "invalid stark proof verifies");
             println!("proof with invalid boundary rejected! \\o/");
@@ -806,7 +806,7 @@ mod tests {
 
         trace[cycle][register] = trace[cycle][register] + error;
 
-        let proof = stark.prove(trace, &air, &boundary, DefaultProofStream::new());
+        let proof = stark.prove(trace, &air, &boundary, IndependentProofStream::new());
         assert!(proof.is_err(), "stark.prove should have failed with invalid trace");
     }
 }

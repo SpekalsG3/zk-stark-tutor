@@ -411,7 +411,7 @@ impl<'a> FRI<'a> {
 #[cfg(test)]
 mod tests {
   use crate::field::field::FIELD_PRIME;
-  use crate::proof_stream::DefaultProofStream;
+  use crate::proof_stream::IndependentProofStream;
   use super::*;
 
   #[test]
@@ -483,7 +483,7 @@ mod tests {
 
     let codeword = polynomial.evaluate_domain(&domain);
 
-    let mut proof_stream = DefaultProofStream::new();
+    let mut proof_stream = IndependentProofStream::new();
 
     println!("proving...");
     // todo: return proofstream
@@ -512,7 +512,7 @@ mod tests {
             *i = field.zero()
           });
     }
-    let mut proof_stream = DefaultProofStream::new();
+    let mut proof_stream = IndependentProofStream::new();
 
     fri.prove(&codeword, &mut proof_stream);
 

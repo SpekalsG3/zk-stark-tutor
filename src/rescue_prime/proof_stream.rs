@@ -1,13 +1,13 @@
 use crate::crypto::blake2b512::blake2b512;
 use crate::crypto::shake256::shake256;
-use crate::proof_stream::{DefaultProofStream, ProofStream};
+use crate::proof_stream::{IndependentProofStream, ProofStream};
 use crate::stark::proof_stream_enum::StarkProofStreamEnum;
 use crate::utils::bytes::Bytes;
 use crate::utils::digest::Digest;
 
 #[derive(Debug)]
 pub struct SignatureProofStream<'a> {
-    pub(crate) ps: DefaultProofStream<StarkProofStreamEnum<'a>>,
+    pub(crate) ps: IndependentProofStream<StarkProofStreamEnum<'a>>,
     pub(crate) prefix: Bytes,
 }
 
@@ -16,7 +16,7 @@ impl<'a> SignatureProofStream<'a> {
         document: T,
     ) -> Self {
         Self {
-            ps: DefaultProofStream::new(),
+            ps: IndependentProofStream::new(),
             prefix: blake2b512(document.into()),
         }
     }
@@ -29,14 +29,16 @@ impl<'a> SignatureProofStream<'a> {
 
 impl<'a> ProofStream<StarkProofStreamEnum<'a>> for SignatureProofStream<'a> {
     fn digest(&self) -> Bytes {
-        self.digest_prefix() + self.ps.digest()
+        self.ps.digest()
     }
 
     fn fiat_shamir_prover(
         &self,
         num_bytes: usize,
     ) -> Bytes {
-        shake256(self.digest(), num_bytes)
+        let bytes = self.digest();
+
+        shake256(self.digest_prefix() + bytes, num_bytes)
     }
 
     fn fiat_shamir_verifier(
