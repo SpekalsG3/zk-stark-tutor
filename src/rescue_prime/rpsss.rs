@@ -20,7 +20,7 @@ impl<'a> RPSSS<'a> {
         security_level: usize, // >= 2 * num_collinearity_checks
         transition_constraints_degree: usize, // 2
     ) -> Self {
-        let rp = RescuePrime::new(field, 2, 1, 27);
+        let rp = RescuePrime::new(field, 2, 1, security_level, 27);
         Self {
             stark: Stark::new(
                 field,

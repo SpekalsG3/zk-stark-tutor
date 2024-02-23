@@ -741,12 +741,13 @@ mod tests {
     #[test]
     fn stark () {
         let field = Field::new(FIELD_PRIME);
-        let rp = RescuePrime::new(&field, 2, 1, 27);
+        let security_level = 2;
+        let rp = RescuePrime::new(&field, 2, 1, security_level, 27);
         let stark = Stark::new(
             &field,
             4, // expansion_factor,
             2, // num_collinearity_checks,
-            2, // security_level,
+            security_level,
             rp.m, // num_registers,
             rp.N + 1, // num_cycles,
             2, // transition_constraints_degree,
