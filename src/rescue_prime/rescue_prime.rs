@@ -149,7 +149,14 @@ impl<'a> RescuePrime<'a> {
         return matrix
     }
 
-    fn get_round_constants(field: &Field, m: usize, capacity: usize, security_level: usize, N: usize) -> Vec<FieldElement<'_>> {
+    fn get_round_constants(
+        field: &Field,
+        m: usize,
+        capacity: usize,
+        security_level: usize,
+        #[allow(non_snake_case)]
+        N: usize,
+    ) -> Vec<FieldElement<'_>> {
         // generate pseudorandom bytes
         let bytes_per_int = (BitIter::from(field.order).count() + 7) / 8 + 1; // `+7` => ceil
         let num_bytes = bytes_per_int * 2 * m * N;
