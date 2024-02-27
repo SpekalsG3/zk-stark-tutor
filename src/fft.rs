@@ -55,7 +55,7 @@ impl Mul<Complex> for Complex {
 
     #[inline]
     fn mul(self, other: Self) -> Self::Output {
-        let re = self.re.clone() * other.re.clone() - self.im.clone() * other.im.clone();
+        let re = self.re * other.re - self.im * other.im;
         let im = self.re * other.im + self.im * other.re;
         Self::Output::new(re, im)
     }
@@ -172,7 +172,6 @@ pub fn fft(inputs: Vec<Complex>) -> Vec<Complex> {
 
     // bit-reverse-copy
     let biggest_bit = (n - 1).ilog2() as usize;
-    println!("biggest: {}", 7_i32.ilog2());
     for (k, el) in inputs.enumerate() {
         let k_rev = {
             let mut n = 0;
