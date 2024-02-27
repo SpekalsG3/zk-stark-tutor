@@ -2,7 +2,7 @@ use std::ops::{BitAnd, Shr};
 use std::usize;
 
 #[derive(Debug, PartialOrd, PartialEq)]
-pub struct BitIter<T>(Option<usize>, T);
+pub struct BitIter<T>(pub(crate) Option<usize>, pub(crate) T);
 
 impl<T> BitIter<T> {
   pub fn bit_index (&self) -> Option<usize> {
@@ -90,9 +90,9 @@ mod tests {
 
   #[test]
   fn degree () {
-    assert_eq!(BitIter::from(5_usize).degree(), 2);
-    assert_eq!(BitIter::from(11_usize).degree(), 3);
-    assert_eq!(BitIter::from(1_u128 << 119).degree(), 119);
+    assert_eq!(BitIter::from(0b100_usize).degree(), 2);
+    assert_eq!(BitIter::from(0b1010_usize).degree(), 3);
+    assert_eq!(BitIter::from(0b1_u128 << 119).degree(), 119);
   }
 
   #[test]
