@@ -87,20 +87,20 @@ impl Mul<f32> for Complex {
     }
 }
 
-
-// ----------
-
-
 const I: Complex = Complex { re: 0_f32, im: 1_f32 };
 
 pub fn fft_recursive(inputs: &[f32]) -> Vec<Complex> {
     fn fft_inner(inputs: Vec<Complex>) -> Vec<Complex> {
         let n = inputs.len();
         if n == 1 {
+            // because:
+            // we can't split n anymore and just compute y_k=\sum_{j=0}^{n-1}{...}
+            // and n-1 == 0 means we have only one iteration with j=0 for x[j]*e^{j...}
+            // which means x[0] * e^{0...} = x[0] * e^0 = x[0] * 1 = x[0]
             return inputs;
         }
 
-        // split
+        // divide
         let even = inputs
             .clone()
             .into_iter()
@@ -118,13 +118,19 @@ pub fn fft_recursive(inputs: &[f32]) -> Vec<Complex> {
 
         // conquer
         let mut bins = vec![Complex::zero(); n];
-        for f in 0..n/2 {
-            let exp = -2_f32 * PI * (f as f32 / n as f32);
-            let exp = I * Complex::new(exp, 0_f32);
+        for k in 0..n/2 {
+            // having calculated the smallest coefficient (with n=1) we now have coefficients X_e and X_o
+            // now we can use them `X_{k} = X_e[k] + o^k * X_o[k]`
+            // and if we try to substitute k with k = k' + n/2 we will see that `^{+ n/2}` exponents cancel out
+            // giving us X_{k'+h/2} = X_e[k'] - o^k * X_o[k']
+            // then we can safely replace k' back to k: X_{k+h/2} = X_e[k] - o^k * X_o[k]
+            // and we get the same expression but only with the minus instead
+
+            let exp = I * -2_f32 * PI * (k as f32 / n as f32);
             let omega = exp.exp();
-            let coeff = omega * odd[f].clone();
-            bins[f      ] = even[f].clone() + coeff.clone();
-            bins[f + n/2] = even[f].clone() - coeff;
+            let omega_x_odd = omega * odd[k].clone();
+            bins[k] = even[k].clone() + omega_x_odd.clone();
+            bins[k + n/2] = even[k].clone() - omega_x_odd;
         }
 
         bins
@@ -142,8 +148,7 @@ pub fn fft(inputs: Vec<Complex>) -> Vec<Complex> {
             m = m << 1;
 
             let o_k = {
-                let exp = -2_f32 * PI / m as f32;
-                let exp = I * Complex::new(exp, 0_f32);
+                let exp = I * -2_f32 * (PI / m as f32);
                 exp.exp()
             };
             for k in (0..n).step_by(m) {
@@ -164,6 +169,7 @@ pub fn fft(inputs: Vec<Complex>) -> Vec<Complex> {
     let n = orig_n.next_power_of_two();
     let mut new_inputs = vec![Complex::zero(); n];
 
+    // pad the input with zeros if the input is not the size of the power two
     let inputs = inputs
         .into_iter()
         .chain(
@@ -200,8 +206,7 @@ pub fn dft (inputs: &[f32]) -> Vec<Complex> {
                     // minus is to calculate fourier coefficient
                     // without minus it's an inverse operation - inverse DFT
                     // but i have no idea why result is the same xd
-                    let exp = -2_f32 * PI * i as f32 * (f as f32 / n as f32);
-                    let exp = I * Complex::new(exp, 0_f32);
+                    let exp = I * -2_f32 * PI * i as f32 * (f as f32 / n as f32);
                     let omega = exp.exp();
                     omega * *x
                 })
@@ -215,7 +220,12 @@ pub fn dft (inputs: &[f32]) -> Vec<Complex> {
 mod tests {
     // use std::f32::consts::PI;
     use std::time::SystemTime;
-    use crate::fft::{Complex, dft, fft, fft_recursive};
+    use crate::fft::{
+        Complex,
+        // dft,
+        fft,
+        // fft_recursive,
+    };
 
     #[test]
     fn test () {
