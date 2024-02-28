@@ -127,16 +127,6 @@ impl<'a> FRI<'a> {
     let mut codeword = codeword.to_vec();
 
     for r in 0..num_rounds {
-      /*
-        TODO:
-          serialization differs
-          => merkle root is different
-          => proof_stream is different
-          => fiat_shamir_prover is different
-          => last codeword is different
-          BUT first codeword is the same. Maybe that's the problem?
-      */
-
       // compute and send Merkle root
       let root = MerkleRoot::commit(&codeword);
       proof_stream.push(StarkProofStreamEnum::Root(root));
