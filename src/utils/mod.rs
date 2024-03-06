@@ -1,5 +1,7 @@
 pub mod bit_iter;
+pub mod bit_reverse_copy;
 pub mod bytes;
+pub mod complex;
 pub mod digest;
 pub mod gcd;
 pub mod matrix;

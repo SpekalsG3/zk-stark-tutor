@@ -62,6 +62,7 @@ mod tests {
   use super::*;
 
   #[test]
+  #[allow(deprecated)]
   fn test_xgcd () {
     assert_eq!(xgcd(10, 5), (0, 1, 5));
     assert_eq!(xgcd(240, 46), (-9, 47, 2));
