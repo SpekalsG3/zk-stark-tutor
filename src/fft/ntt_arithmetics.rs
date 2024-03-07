@@ -235,11 +235,84 @@ pub fn fast_interpolate<'a>(
     inner(root, root_order, domain, values)
 }
 
+pub fn fast_coset_divide<'a>(
+    root: FieldElement<'a>,
+    root_order: usize,
+    offset: FieldElement<'a>,
+    lhs: Polynomial<'a>,
+    rhs: Polynomial<'a>,
+) -> Polynomial<'a> {
+    assert_eq!(
+        root ^ root_order,
+        root.field.one(),
+        "supplied root {} does not have supplied root_order {}",
+        root.value,
+        root_order,
+    );
+    assert_ne!(
+        root ^ (root_order / 2),
+        root.field.one(),
+        "supplied root {} is not a primitive of root_order {}",
+        root.value,
+        root_order,
+    );
+    assert!(!rhs.is_zero(), "cannot divide by zero polynomial");
+
+    if lhs.is_zero() {
+        return Polynomial::new(vec![]);
+    }
+
+    // SAFETY: checked if zero before
+    let lhs_degree = lhs.degree().unwrap();
+    let rhs_degree = rhs.degree().unwrap();
+    assert!(lhs_degree >= rhs_degree, "cannot divide by polynomial of larger degree");
+
+    let field = root.field;
+    let mut root = root;
+    let mut order = root_order;
+    let degree = lhs_degree.max(rhs_degree);
+    let result_degree = lhs_degree - rhs_degree + 1;
+
+    // for whatever reason `degree * 2 < order` doesnt work
+    while degree < order / 2 {
+        root = root ^ 2_usize;
+        order = order / 2_usize;
+    }
+
+    let inner = |poly: Polynomial<'a>| {
+        let poly = poly.scale(offset);
+        let mut poly = poly.coefficients;
+        poly.extend(
+            (poly.len()..order)
+                .map(|_| field.zero()),
+        );
+        ntt(root, poly)
+    };
+
+    let lhs = inner(lhs);
+    let rhs = inner(rhs);
+
+    let quotient = (0..order)
+        .map(|i| {
+            // SAFETY: padded up to order elements
+            lhs[i] / rhs[i]
+        })
+        .collect();
+
+    let mut coeffs = intt(root, quotient);
+    if result_degree < coeffs.len() {
+        coeffs.drain(result_degree..);
+    }
+    let scaled_poly = Polynomial::new(coeffs);
+
+    scaled_poly.scale(offset.inverse())
+}
+
 #[cfg(test)]
 mod tests {
     use rand::{RngCore, thread_rng};
     use rand::rngs::ThreadRng;
-    use crate::fft::ntt_arithmetics::{fast_coset_evaluate, fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
+    use crate::fft::ntt_arithmetics::{fast_coset_divide, fast_coset_evaluate, fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::field::polynomial::Polynomial;
@@ -411,5 +484,30 @@ mod tests {
         let evaluation_coset = fast_coset_evaluate(primitive_root, n, offset, poly);
 
         assert_eq!(evaluation_domain, evaluation_coset);
+    }
+
+    #[test]
+    fn coset_divide() {
+        let field = Field::new(FIELD_PRIME);
+        let n: usize = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n as u128);
+
+        let mut thread_rng = thread_rng();
+
+        for trial in 0..20 {
+            let lhs = rand_poly(&mut thread_rng, &field, n / 2);
+            let rhs = rand_poly(&mut thread_rng, &field, n / 2);
+
+            let prod = fast_multiply(primitive_root, n, lhs.clone(), rhs.clone());
+            let div = fast_coset_divide(primitive_root, n, field.generator(), prod, lhs.clone());
+
+            assert_eq!(
+                div,
+                rhs,
+                "#{trial} trial failed with:\nlhs {:?}\nrhs {:?}",
+                lhs.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
+                rhs.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
+            )
+        }
     }
 }
