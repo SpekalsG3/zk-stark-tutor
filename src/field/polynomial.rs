@@ -197,7 +197,7 @@ impl<'a> Polynomial<'a> {
     };
 
     let field = denominator.coefficients.first().unwrap().field;
-    let mut remainder = numerator.clone();
+    let mut remainder = numerator;
 
     let steps = numer_degree - denom_degree + 1;
     let mut quotient_coefficients = vec![field.zero(); steps];
@@ -214,11 +214,9 @@ impl<'a> Polynomial<'a> {
 
       let mut subtrahend_coeffs = vec![field.zero(); shift];
       subtrahend_coeffs.push(coefficient);
-      let subtrahend = Polynomial {
-        coefficients: subtrahend_coeffs
-      }.mul(denominator.clone());
+      let subtrahend = Polynomial::new(subtrahend_coeffs) * denominator.clone();
 
-      remainder = remainder.sub(subtrahend);
+      remainder = remainder - subtrahend;
 
       *(quotient_coefficients.get_mut(shift).unwrap()) = coefficient;
     };

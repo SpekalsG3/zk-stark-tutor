@@ -157,6 +157,17 @@ pub fn fast_evaluate_domain<'a>(
     inner(root, root_order, polynomial, domain)
 }
 
+pub fn fast_coset_evaluate<'a>(
+    generator: FieldElement<'a>,
+    root_order: usize,
+    offset: FieldElement<'a>,
+    polynomial: Polynomial<'a>,
+) -> Vec<FieldElement<'a>> {
+    let mut coeffs = polynomial.scale(offset).coefficients;
+    coeffs.extend(vec![generator.field.zero(); root_order - coeffs.len()]);
+    ntt(generator, coeffs)
+}
+
 pub fn fast_interpolate<'a>(
     root: FieldElement<'a>,
     root_order: usize,
@@ -228,7 +239,7 @@ pub fn fast_interpolate<'a>(
 mod tests {
     use rand::{RngCore, thread_rng};
     use rand::rngs::ThreadRng;
-    use crate::fft::ntt_arithmetics::{fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
+    use crate::fft::ntt_arithmetics::{fast_coset_evaluate, fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::field::polynomial::Polynomial;
@@ -378,5 +389,25 @@ mod tests {
         // 31_809ms - default
         //  9_769ms - fast version
         // println!("done in {}ms", SystemTime::now().duration_since(start).unwrap().as_millis())
+    }
+
+    #[test]
+    fn coset_evaluate () {
+        let field = Field::new(FIELD_PRIME);
+        let n: usize = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n as u128);
+
+        let offset = FieldElement::new(&field, 5);
+        let domain = (0..n)
+            .map(|i| (primitive_root ^ i) * offset)
+            .collect::<Vec<_>>();
+
+        let mut thread_rng = thread_rng();
+        let poly = rand_poly(&mut thread_rng, &field, n);
+
+        let evaluation_domain = fast_evaluate_domain(primitive_root, n, poly.clone(), &domain);
+        let evaluation_coset = fast_coset_evaluate(primitive_root, n, offset, poly);
+
+        assert_eq!(evaluation_coset, evaluation_coset);
     }
 }
