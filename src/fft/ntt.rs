@@ -53,7 +53,7 @@ pub fn intt<'a>(
     input: Vec<FieldElement<'a>>,
 ) -> Vec<FieldElement<'a>> {
     let orig_n = input.len();
-    if orig_n == 1 {
+    if orig_n < 2 {
         return input;
     }
     let n = orig_n.next_power_of_two();

@@ -1,6 +1,10 @@
 use crate::utils::bit_iter::BitIter;
 
 pub fn bit_reverse_copy<T: Clone>(zero: T, inputs: Vec<T>) -> Vec<T> {
+    if inputs.len() < 2 {
+        return inputs;
+    }
+
     let orig_n = inputs.len();
     let n = orig_n.next_power_of_two();
     let mut new_inputs = vec![zero.clone(); n];
