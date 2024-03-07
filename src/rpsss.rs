@@ -86,6 +86,13 @@ mod tests {
     use crate::rpsss::RPSSS;
     use crate::utils::bytes::Bytes;
 
+    // proof size - 1156888 bytes (141 kb)
+
+    // default arithmetics (in release mode, in dev its too long)
+    // key gen - 11ms
+    // sign time - 83_261ms
+    // verify time - 131_186ms
+
     #[test]
     fn rpsss () {
         let field = Field::new(FIELD_PRIME);

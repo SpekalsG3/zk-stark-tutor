@@ -338,9 +338,13 @@ mod tests {
         max_degree: usize,
     ) -> Polynomial<'a> {
         let degree = {
-            let mut bytes = [0; 1];
-            thread_rng.fill_bytes(&mut bytes);
-            u8::from_be_bytes(bytes) as usize % max_degree
+            let mut degree = 0;
+            while degree == 0 {
+                let mut bytes = [0; 1];
+                thread_rng.fill_bytes(&mut bytes);
+                degree = u8::from_be_bytes(bytes) as usize % max_degree
+            }
+            degree
         };
 
         let coeffs = rand_domain(thread_rng, field, degree);

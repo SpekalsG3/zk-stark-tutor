@@ -118,7 +118,9 @@ mod tests {
     }
     impl Digest for &[SomeObjects] {
       fn digest<'m>(&'m self) -> Bytes {
-        unimplemented!()
+        Bytes::new(
+          format!("{:?}", self).as_bytes().to_vec()
+        )
       }
     }
 
