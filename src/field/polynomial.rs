@@ -180,16 +180,16 @@ impl<'a> Polynomial<'a> {
     }
   }
 
-  pub fn divide_with_rem(numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Option<(Polynomial<'a>, Polynomial<'a>)> {
+  pub fn divide_with_rem(numerator: Polynomial<'a>, denominator: Polynomial<'a>) -> Result<(Polynomial<'a>, Polynomial<'a>), String> {
     let denom_degree = denominator.degree();
     if denom_degree.is_none() {
-      return None;
+      return Err("Denominator is zero or empty".to_string());
     }
     let denom_degree = denom_degree.unwrap();
     let numer_degree = match numerator.degree() {
       Some(i) if i >= denom_degree => i,
       _ => {
-        return Some((
+        return Ok((
           Polynomial::zero(),
           numerator,
         ));
@@ -226,18 +226,15 @@ impl<'a> Polynomial<'a> {
     let quotient = Polynomial {
       coefficients: quotient_coefficients,
     };
-    Some((quotient, remainder))
+    Ok((quotient, remainder))
   }
 
 // impl<'a> Div for Polynomial<'a> {
 //   type Output = Self;
   pub fn div (self, rhs: Self) -> Result<Self, String> {
-    let res = Polynomial::divide_with_rem(self, rhs);
-    if res.is_none() {
-      return Err("Denominator is empty or zero".to_string());
-    }
+    let res = Polynomial::divide_with_rem(self, rhs)?;
 
-    let (q, r) = res.unwrap();
+    let (q, r) = res;
     if !r.is_zero() {
       return Err("Cannot perform true division because remained is not zero".to_string());
     }
@@ -326,10 +323,9 @@ impl<'a> Mul for Polynomial<'a> {
 impl<'a> Rem for Polynomial<'a> {
   type Output = Self;
   fn rem (self, rhs: Self) -> Self::Output {
-    let res = Polynomial::divide_with_rem(self, rhs);
-    assert!(res.is_some(), "Denominator is empty or zero");
+    let res = Polynomial::divide_with_rem(self, rhs).unwrap();
 
-    let (_, r) = res.unwrap();
+    let (_, r) = res;
 
     r
   }
@@ -521,7 +517,7 @@ mod tests {
         },
       ]
     };
-    assert_eq!(Polynomial::divide_with_rem(nomin, denom), Some((quotient, remainder)));
+    assert_eq!(Polynomial::divide_with_rem(nomin, denom), Ok((quotient, remainder)));
   }
 
   #[test]
