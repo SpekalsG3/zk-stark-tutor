@@ -331,7 +331,7 @@ impl<'a> Stark<'a> {
         // and thus we don't need to commit to both quotients
         // and we don't need to commit to trace polynomials because if verifier knows a value in a given
         // point of one quotient, he can compute a matching value of another using only public data
-        let fri_domain = self.fri.eval_domain();
+        let fri_domain = self.fri.evaluate_domain();
         let boundary_quotient_codewords = {
             (0..self.num_registers)
                 .map(|s| {

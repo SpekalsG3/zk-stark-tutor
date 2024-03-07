@@ -39,14 +39,14 @@ pub fn fast_multiply<'a>(
         order = order / 2_usize;
     }
 
-    let mut lhs = lhs.coefficients;
-    lhs.extend((lhs.len()..order).map(|_| field.zero()));
+    let inner = |poly: Polynomial<'a>| -> Vec<FieldElement<'a>> {
+        let mut poly = poly.coefficients;
+        poly.extend((poly.len()..order).map(|_| field.zero()));
+        ntt(root, poly)
+    };
 
-    let mut rhs = rhs.coefficients;
-    rhs.extend((rhs.len()..order).map(|_| field.zero()));
-
-    let lhs = ntt(root, lhs);
-    let rhs = ntt(root, rhs);
+    let lhs = inner(lhs);
+    let rhs = inner(rhs);
 
     let hadamard_product = (0..order)
         .map(|i| {
@@ -168,7 +168,7 @@ pub fn fast_coset_evaluate<'a>(
     ntt(generator, coeffs)
 }
 
-pub fn fast_interpolate<'a>(
+pub fn fast_interpolate_domain<'a>(
     root: FieldElement<'a>,
     root_order: usize,
     domain: &[FieldElement<'a>],
@@ -312,7 +312,7 @@ pub fn fast_coset_divide<'a>(
 mod tests {
     use rand::{RngCore, thread_rng};
     use rand::rngs::ThreadRng;
-    use crate::fft::ntt_arithmetics::{fast_coset_divide, fast_coset_evaluate, fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
+    use crate::fft::ntt_arithmetics::{fast_coset_divide, fast_coset_evaluate, fast_evaluate_domain, fast_interpolate_domain, fast_multiply, fast_zerofier};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::field::polynomial::Polynomial;
@@ -442,7 +442,7 @@ mod tests {
 
             // let poly = Polynomial::interpolate_domain(&domain, &values);
             // let evaluation = poly.evaluate_domain(&domain);
-            let poly = fast_interpolate(primitive_root, n, &domain, &values);
+            let poly = fast_interpolate_domain(primitive_root, n, &domain, &values);
             let evaluation = fast_evaluate_domain(
                 primitive_root,
                 n,

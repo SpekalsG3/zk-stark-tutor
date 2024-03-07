@@ -48,7 +48,7 @@ impl<'a> FRI<'a> {
     num_rounds
   }
 
-  pub fn eval_domain (&self) -> Vec<FieldElement<'a>> {
+  pub fn evaluate_domain(&self) -> Vec<FieldElement<'a>> {
     (0..self.domain_length)
       .map(|i| {
         self.generator * (self.omega.clone() ^ i)

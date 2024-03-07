@@ -8,3 +8,4 @@ pub mod proof_stream;
 pub mod stark;
 pub mod rescue_prime;
 pub mod fft;
+pub mod rpsss;

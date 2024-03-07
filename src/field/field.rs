@@ -46,7 +46,8 @@ impl<'a> Field {
 
   pub fn smallest_generator(&'a self) -> FieldElement<'a> {
     // In a finite field GF(q) number of primitive elements is phi(q-1), where phi is Euler's totient function
-    // which counts number of coprime elements to q-1. Meaning it's enough to find gcd(k, q-1), where 3 <= k <= q-1
+    // which counts number of coprime elements to q-1. Meaning it's enough to find gcd(k, q-1),
+    // where 3 <= k <= q-1 and k is coprime to q-1
     let mut k = 3;
     while gcd(k, self.order-1) != 1 {
       k += 1;

@@ -83,13 +83,16 @@ impl<'a> RPSSS<'a> {
 mod tests {
     use std::time::SystemTime;
     use crate::field::field::{Field, FIELD_PRIME};
-    use crate::rescue_prime::rpsss::RPSSS;
+    use crate::rpsss::RPSSS;
     use crate::utils::bytes::Bytes;
 
     #[test]
     fn rpsss () {
         let field = Field::new(FIELD_PRIME);
         let rpsss = RPSSS::new(&field, 4, 64, 128, 2);
+
+        let time = SystemTime::now();
+        println!("Started at {}", time.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());
 
         let time = SystemTime::now();
         let (sk, pk) = rpsss.keygen();
