@@ -62,11 +62,55 @@ pub fn fast_multiply<'a>(
     Polynomial::new(coeffs)
 }
 
+pub fn fast_zerofier<'a>(
+    root: FieldElement<'a>,
+    root_order: usize,
+    domain: &[FieldElement<'a>],
+) -> Polynomial<'a> {
+    assert_eq!(
+        root ^ root_order,
+        root.field.one(),
+        "supplied root {} does not have supplied root_order {}",
+        root.value,
+        root_order,
+    );
+    assert_ne!(
+        root ^ (root_order / 2),
+        root.field.one(),
+        "supplied root {} is not a primitive of root_order {}",
+        root.value,
+        root_order,
+    );
+
+    fn fast_zerofier_inner<'i> (
+        root: FieldElement<'i>,
+        root_order: usize,
+        domain: &[FieldElement<'i>],
+    ) -> Polynomial<'i> {
+        if domain.len() == 0 {
+            return Polynomial::new(vec![]);
+        }
+        if domain.len() == 1 {
+            return Polynomial::new(vec![
+                -domain[0],
+                root.field.one(),
+            ]);
+        }
+
+        let half = domain.len() / 2;
+        let left = fast_zerofier_inner(root, root_order, &domain[..half]);
+        let right = fast_zerofier_inner(root, root_order, &domain[half..]);
+        fast_multiply(root, root_order, left, right)
+    }
+
+    fast_zerofier_inner(root, root_order, domain)
+}
+
 #[cfg(test)]
 mod tests {
     use rand::{RngCore, thread_rng};
     use rand::rngs::ThreadRng;
-    use crate::fft::ntt_arithmetics::{fast_multiply};
+    use crate::fft::ntt_arithmetics::{fast_multiply, fast_zerofier};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::polynomial::Polynomial;
     use crate::utils::bytes::Bytes;
@@ -111,6 +155,34 @@ mod tests {
                 lhs.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
                 rhs.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
             );
+        }
+    }
+
+    #[test]
+    fn zerofier () {
+        let field = Field::new(FIELD_PRIME);
+        let n: usize = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n as u128);
+
+        let mut thread_rng = thread_rng();
+
+        for trial in 0..20 {
+            let poly = rand_poly(&mut thread_rng, &field, n);
+            let zerofier = fast_zerofier(
+                primitive_root,
+                n,
+                &poly.coefficients,
+            );
+
+            for c in &poly.coefficients {
+                assert_eq!(
+                    zerofier.evaluate(c),
+                    field.zero(),
+                    "#{trial} trial failed with:\npoly {:?}\nzerofier {:?}",
+                    poly.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
+                    zerofier.coefficients.iter().map(|f| f.value).collect::<Vec<_>>(),
+                )
+            }
         }
     }
 }
