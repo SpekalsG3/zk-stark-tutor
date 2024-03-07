@@ -82,7 +82,7 @@ pub fn fast_zerofier<'a>(
         root_order,
     );
 
-    fn fast_zerofier_inner<'i> (
+    fn inner<'i> (
         root: FieldElement<'i>,
         root_order: usize,
         domain: &[FieldElement<'i>],
@@ -98,12 +98,12 @@ pub fn fast_zerofier<'a>(
         }
 
         let half = domain.len() / 2;
-        let left = fast_zerofier_inner(root, root_order, &domain[..half]);
-        let right = fast_zerofier_inner(root, root_order, &domain[half..]);
+        let left = inner(root, root_order, &domain[..half]);
+        let right = inner(root, root_order, &domain[half..]);
         fast_multiply(root, root_order, left, right)
     }
 
-    fast_zerofier_inner(root, root_order, domain)
+    inner(root, root_order, domain)
 }
 
 pub fn fast_evaluate_domain<'a>(
@@ -127,7 +127,7 @@ pub fn fast_evaluate_domain<'a>(
         root_order,
     );
 
-    fn fast_evaluate_inner<'i>(
+    fn inner<'i>(
         root: FieldElement<'i>,
         root_order: usize,
         polynomial: Polynomial<'i>,
@@ -147,21 +147,88 @@ pub fn fast_evaluate_domain<'a>(
         let left = fast_zerofier(root, root_order, &domain[..half]);
         let right = fast_zerofier(root, root_order, &domain[half..]);
 
-        let mut left  = fast_evaluate_inner(root, root_order, polynomial.clone() % left, &domain[..half]);
-        let     right = fast_evaluate_inner(root, root_order, polynomial % right, &domain[half..]);
+        let mut left  = inner(root, root_order, polynomial.clone() % left, &domain[..half]);
+        let     right = inner(root, root_order, polynomial % right, &domain[half..]);
 
         left.extend(right);
         left
     }
 
-    fast_evaluate_inner(root, root_order, polynomial, domain)
+    inner(root, root_order, polynomial, domain)
+}
+
+pub fn fast_interpolate<'a>(
+    root: FieldElement<'a>,
+    root_order: usize,
+    domain: &[FieldElement<'a>],
+    values: &[FieldElement<'a>],
+) -> Polynomial<'a> {
+    assert_eq!(
+        root ^ root_order,
+        root.field.one(),
+        "supplied root {} does not have supplied root_order {}",
+        root.value,
+        root_order,
+    );
+    assert_ne!(
+        root ^ (root_order / 2),
+        root.field.one(),
+        "supplied root {} is not a primitive of root_order {}",
+        root.value,
+        root_order,
+    );
+    assert_eq!(domain.len(), values.len());
+
+    fn inner<'i>(
+        root: FieldElement<'i>,
+        root_order: usize,
+        domain: &[FieldElement<'i>],
+        values: &[FieldElement<'i>],
+    ) -> Polynomial<'i> {
+        if domain.len() == 0 {
+            return Polynomial::new(vec![]);
+        }
+        if domain.len() == 1 {
+            return Polynomial::new(vec![values[0]]);
+        }
+
+        let half = domain.len() / 2;
+
+        let left_zerofier = fast_zerofier(root, root_order, &domain[..half]);
+        let right_zerofier = fast_zerofier(root, root_order, &domain[half..]);
+
+        let left_offset  = fast_evaluate_domain(root, root_order, right_zerofier.clone(), &domain[..half]);
+        let right_offset = fast_evaluate_domain(root, root_order, left_zerofier.clone(), &domain[half..]);
+
+        let left_targets = left_offset
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| {
+                values[i] / d
+            })
+            .collect::<Vec<_>>();
+        let right_targets = right_offset
+            .into_iter()
+            .enumerate()
+            .map(|(i, d)| {
+                values[i + half] / d
+            })
+            .collect::<Vec<_>>();
+
+        let left_interpolant = inner(root, root_order, &domain[..half], &left_targets);
+        let right_interpolant = inner(root, root_order, &domain[half..], &right_targets);
+
+        left_interpolant * right_zerofier + right_interpolant * left_zerofier
+    }
+
+    inner(root, root_order, domain, values)
 }
 
 #[cfg(test)]
 mod tests {
     use rand::{RngCore, thread_rng};
     use rand::rngs::ThreadRng;
-    use crate::fft::ntt_arithmetics::{fast_evaluate_domain, fast_multiply, fast_zerofier};
+    use crate::fft::ntt_arithmetics::{fast_evaluate_domain, fast_interpolate, fast_multiply, fast_zerofier};
     use crate::field::field::{Field, FIELD_PRIME};
     use crate::field::field_element::FieldElement;
     use crate::field::polynomial::Polynomial;
@@ -273,5 +340,43 @@ mod tests {
                 domain.iter().map(|f| f.value).collect::<Vec<_>>(),
             )
         }
+    }
+
+    #[test]
+    fn interpolate() {
+        let field = Field::new(FIELD_PRIME);
+        let n: usize = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n as u128);
+
+        let mut thread_rng = thread_rng();
+
+        // let start = SystemTime::now();
+
+        for trial in 0..20 {
+            let domain = rand_domain(&mut thread_rng, &field, n);
+            let values = rand_domain(&mut thread_rng, &field, n);
+
+            // let poly = Polynomial::interpolate_domain(&domain, &values);
+            // let evaluation = poly.evaluate_domain(&domain);
+            let poly = fast_interpolate(primitive_root, n, &domain, &values);
+            let evaluation = fast_evaluate_domain(
+                primitive_root,
+                n,
+                poly.clone(),
+                &domain,
+            );
+
+            assert_eq!(
+                values,
+                evaluation,
+                "#{trial} trial failed with:\nvalues {:?}\ndomain {:?}",
+                values.iter().map(|f| f.value).collect::<Vec<_>>(),
+                domain.iter().map(|f| f.value).collect::<Vec<_>>(),
+            )
+        }
+
+        // 31_809ms - default
+        //  9_769ms - fast version
+        // println!("done in {}ms", SystemTime::now().duration_since(start).unwrap().as_millis())
     }
 }
