@@ -4,7 +4,7 @@ use crate::utils::complex::{Complex, I};
 pub fn dft (inputs: &[f32]) -> Vec<Complex> {
     let n = inputs.len();
 
-    (0..n )
+    (0..n)
         .map(|f| {
             inputs
                 .iter()

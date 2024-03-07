@@ -19,11 +19,11 @@ pub fn fft(inputs: Vec<Complex>) -> Vec<Complex> {
         for k in (0..n).step_by(size) {
             let mut o = Complex::one();
 
-            for j in 0..halfsize {
-                let odd = o.clone() * inputs[k + j + halfsize].clone();
-                let even = inputs[k + j].clone();
-                inputs[k + j] = even.clone() + odd.clone();
-                inputs[k + j + halfsize] = even - odd;
+            for j in k..k+halfsize {
+                let odd = o.clone() * inputs[j + halfsize].clone();
+                let even = inputs[j].clone();
+                inputs[j           ] = even.clone() + odd.clone();
+                inputs[j + halfsize] = even - odd;
                 o = o * o_k.clone();
             }
         }
