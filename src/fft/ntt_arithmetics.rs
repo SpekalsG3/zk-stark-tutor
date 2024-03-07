@@ -270,8 +270,8 @@ mod tests {
             u8::from_be_bytes(bytes) as usize % max_degree
         };
 
-        let coefs = rand_domain(thread_rng, field, degree);
-        Polynomial::new(coefs)
+        let coeffs = rand_domain(thread_rng, field, degree);
+        Polynomial::new(coeffs)
     }
 
     #[test]
@@ -405,9 +405,11 @@ mod tests {
         let mut thread_rng = thread_rng();
         let poly = rand_poly(&mut thread_rng, &field, n);
 
+        // 115ms
         let evaluation_domain = fast_evaluate_domain(primitive_root, n, poly.clone(), &domain);
+        // 1ms
         let evaluation_coset = fast_coset_evaluate(primitive_root, n, offset, poly);
 
-        assert_eq!(evaluation_coset, evaluation_coset);
+        assert_eq!(evaluation_domain, evaluation_coset);
     }
 }
