@@ -18,7 +18,7 @@ impl<'a> RPSSS<'a> {
         expansion_factor: usize, // 4
         num_collinearity_checks: usize, // 64
         security_level: usize, // >= 2 * num_collinearity_checks
-        transition_constraints_degree: usize, // 2
+        transition_constraints_degree: usize,
     ) -> Self {
         let rp = RescuePrime::new(field, 2, 1, security_level, 27);
         Self {
@@ -43,7 +43,7 @@ impl<'a> RPSSS<'a> {
         let output_element = self.rp.hash(input_elements.clone());
         let trace = self.rp.trace(input_elements);
 
-        let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
+        let transition_constraints = self.rp.transition_constraints(self.stark.omicron, self.stark.omicron_domain_length);
         let boundary_constraints = self.rp.boundary_constraints(output_element);
         self.stark.prove(trace, &transition_constraints, &boundary_constraints, proof_stream)
     }
@@ -54,7 +54,7 @@ impl<'a> RPSSS<'a> {
         sps: SignatureProofStream<'m>,
     ) -> Result<(), String> {
         let boundary_constraints = self.rp.boundary_constraints(output_element);
-        let transition_constraints = self.rp.transition_constraints(self.stark.omicron);
+        let transition_constraints = self.rp.transition_constraints(self.stark.omicron, self.stark.omicron_domain_length);
         self.stark.verify::<SignatureProofStream>(&transition_constraints, &boundary_constraints, sps)
     }
 
@@ -93,10 +93,14 @@ mod tests {
     // sign time - 83_261ms
     // verify time - 131_186ms
 
+    // fast (in release)
+    // sign time - 18_913ms
+    // verify time - 657ms
+
     #[test]
     fn rpsss () {
         let field = Field::new(FIELD_PRIME);
-        let rpsss = RPSSS::new(&field, 4, 64, 128, 2);
+        let rpsss = RPSSS::new(&field, 4, 64, 128, 3);
 
         let time = SystemTime::now();
         println!("Started at {}", time.duration_since(std::time::UNIX_EPOCH).unwrap().as_millis());

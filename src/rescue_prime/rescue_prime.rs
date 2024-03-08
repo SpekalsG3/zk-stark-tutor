@@ -1,7 +1,7 @@
 use crate::crypto::shake256::shake256;
+use crate::fft::ntt_arithmetics::fast_interpolate_domain;
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
-use crate::field::polynomial::Polynomial;
 use crate::m_polynomial::MPolynomial;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
@@ -203,8 +203,11 @@ impl<'a> RescuePrime<'a> {
         vec
     }
 
-    fn round_constants_polynomials<'m> (&'m self, omicron: FieldElement<'m>)
-        -> (Vec<MPolynomial<'m>>, Vec<MPolynomial<'m>>) {
+    fn round_constants_polynomials<'m>(
+        &'m self,
+        omicron: FieldElement<'m>,
+        omicron_domain_length: u128,
+    ) -> (Vec<MPolynomial<'m>>, Vec<MPolynomial<'m>>) {
         let domain = (0..self.N)
             .map(|r| omicron ^ r)
             .collect::<Vec<_>>();
@@ -214,7 +217,10 @@ impl<'a> RescuePrime<'a> {
                 let values = (0..self.N)
                     .map(|r| self.round_constants[2 * r * self.m + i])
                     .collect::<Vec<_>>();
-                let poly = Polynomial::interpolate_domain(&domain, &values);
+
+                // let poly = Polynomial::interpolate_domain(&domain, &values);
+                let poly = fast_interpolate_domain(omicron, omicron_domain_length, &domain, &values);
+
                 MPolynomial::lift(&poly, 0)
             })
             .collect();
@@ -224,7 +230,10 @@ impl<'a> RescuePrime<'a> {
                 let values = (0..self.N)
                     .map(|r| self.round_constants[2 * r * self.m + self.m + i])
                     .collect::<Vec<_>>();
-                let poly = Polynomial::interpolate_domain(&domain, &values);
+
+                // let poly = Polynomial::interpolate_domain(&domain, &values);
+                let poly = fast_interpolate_domain(omicron, omicron_domain_length, &domain, &values);
+
                 MPolynomial::lift(&poly, 0)
             })
             .collect();
@@ -232,9 +241,13 @@ impl<'a> RescuePrime<'a> {
         (left, right)
     }
 
-    pub fn transition_constraints<'m> (&'m self, omicron: FieldElement<'a>) -> Vec<MPolynomial<'m>> {
+    pub fn transition_constraints<'m>(
+        &'m self,
+        omicron: FieldElement<'m>,
+        omicron_domain_length: u128,
+    ) -> Vec<MPolynomial<'m>> {
         // get polynomials that interpolate through the round constants
-        let (first_step, second_step) = self.round_constants_polynomials(omicron);
+        let (first_step, second_step) = self.round_constants_polynomials(omicron, omicron_domain_length);
 
         // arithmetize one round of Rescue-Prime
         let variables = MPolynomial::variables(1 + 2 * self.m, self.field);
@@ -246,6 +259,7 @@ impl<'a> RescuePrime<'a> {
                 // compute left hand side symbolically
                 let lhs = (0..self.m)
                     .map(|k| {
+                        // todo: fft?
                         MPolynomial::constant(self.MDS[i][k]) * (previous_state[k].clone() ^ self.alpha)
                     })
                     .reduce(|a, b| a + b)
@@ -253,6 +267,7 @@ impl<'a> RescuePrime<'a> {
 
                 let rhs = (0..self.m)
                     .map(|k| {
+                        // todo: fft?
                         MPolynomial::constant(self.MDS_inv[i][k]) * (next_state[k].clone() - second_step[k].clone())
                     })
                     .reduce(|a, b| a + b)
@@ -350,9 +365,10 @@ mod tests {
                 }
             }
 
-            let omicron = field.primitive_nth_root(1 << 119);
+            let omicron_domain_length = 1 << 119;
+            let omicron = field.primitive_nth_root(omicron_domain_length);
             for i in 0..(trace.len() - &1) {
-                for poly in rp.transition_constraints(omicron) {
+                for poly in rp.transition_constraints(omicron, omicron_domain_length) {
                     let mut point = Vec::with_capacity(1 + 2 * 2 * rp.m);
                     point.push(omicron ^ i);
                     point.extend(&trace[i]); // prev state

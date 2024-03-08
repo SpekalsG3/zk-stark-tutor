@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::io::Read;
 use rand::{RngCore, thread_rng};
 use crate::crypto::shake256::PROOF_BYTES;
+use crate::fft::ntt_arithmetics::{fast_coset_divide, fast_coset_evaluate, fast_interpolate_domain, fast_multiply, fast_zerofier};
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
@@ -21,6 +22,7 @@ pub struct Stark<'a> {
     num_randomizers: usize,
     pub(crate) omicron: FieldElement<'a>,
     omicron_domain: Vec<FieldElement<'a>>,
+    pub(crate) omicron_domain_length: u128,
     fri: FRI<'a>,
 }
 
@@ -73,7 +75,7 @@ impl<'a> Stark<'a> {
         security_level: usize,
         num_registers: usize,
         num_cycles: usize,
-        transition_constraints_degree: usize,
+        transition_constraints_degree: usize, // 2
     ) -> Self {
         assert!(BitIter::from(field.order).count() >= security_level, "field order has to be at least {} bits", security_level);
         assert_eq!(expansion_factor & (expansion_factor - 1), 0, "expansion_factor must be a power of 2");
@@ -82,14 +84,14 @@ impl<'a> Stark<'a> {
 
         let num_randomizers = 4 * num_collinearity_checks;
         let randomized_trace_length = num_cycles + num_randomizers;
-        let omicron_domain_length = 1 << BitIter::from(randomized_trace_length * transition_constraints_degree).count();
-        let fri_domain_length = omicron_domain_length * expansion_factor;
+        let omicron_domain_length = 1_u128 << BitIter::from(randomized_trace_length * transition_constraints_degree).count();
+        let fri_domain_length = omicron_domain_length * (expansion_factor as u128);
 
         let generator = field.generator();
-        let omega = field.primitive_nth_root(fri_domain_length as u128);
-        let omicron = field.primitive_nth_root(omicron_domain_length as u128);
+        let omega = field.primitive_nth_root(fri_domain_length);
+        let omicron = field.primitive_nth_root(omicron_domain_length);
         let omicron_domain = (0..omicron_domain_length)
-            .map(|i| omicron ^ i as u128)
+            .map(|i| omicron ^ i)
             .collect::<Vec<_>>();
 
         Self {
@@ -100,10 +102,11 @@ impl<'a> Stark<'a> {
             num_randomizers,
             omicron,
             omicron_domain,
+            omicron_domain_length,
             fri: FRI::new(
                 generator,
                 omega,
-                fri_domain_length,
+                fri_domain_length as usize,
                 expansion_factor,
                 num_collinearity_checks
             ),
@@ -184,7 +187,12 @@ impl<'a> Stark<'a> {
 
     fn transition_zerofier(&self) -> Polynomial {
         let domain = &self.omicron_domain[0..self.original_trace_length-1];
-        Polynomial::zerofier_domain(domain)
+        // Polynomial::zerofier_domain(domain)
+        fast_zerofier(
+            self.omicron,
+            self.omicron_domain_length,
+            &domain,
+        )
     }
 
     fn boundary_zerofiers(
@@ -198,7 +206,12 @@ impl<'a> Stark<'a> {
                     .filter(|(_, r,_ )| r == &s)
                     .map(|(c, _, _)| self.omicron ^ *c)
                     .collect::<Vec<_>>();
-                Polynomial::zerofier_domain(&domain)
+                // Polynomial::zerofier_domain(&domain)
+                fast_zerofier(
+                    self.omicron,
+                    self.omicron_domain_length,
+                    &domain,
+                )
             })
             .collect()
     }
@@ -221,7 +234,13 @@ impl<'a> Stark<'a> {
                     values.push(*v);
                 }
 
-                Polynomial::interpolate_domain(&domain, &values)
+                // Polynomial::interpolate_domain(&domain, &values)
+                fast_interpolate_domain(
+                    self.omicron,
+                    self.omicron_domain_length,
+                    &domain,
+                    &values
+                )
             })
             .collect()
     }
@@ -295,7 +314,13 @@ impl<'a> Stark<'a> {
                         .map(|el| *el.get(s).expect("One of trace elements' length is less then self.num_registers"))
                         .collect::<Vec<_>>();
 
-                    Polynomial::interpolate_domain(&trace_domain, &single_trace)
+                    // Polynomial::interpolate_domain(&trace_domain, &single_trace)
+                    fast_interpolate_domain(
+                        self.omicron,
+                        self.omicron_domain_length,
+                        &trace_domain,
+                        &single_trace,
+                    )
                 })
                 .collect::<Vec<_>>()
         };
@@ -321,7 +346,15 @@ impl<'a> Stark<'a> {
                     let trace_polynomial = trace_polynomials[s].clone();
                     let boundary_polynomial = trace_polynomial - interpolant;
 
-                    boundary_polynomial.div(zerofier)
+                    // boundary_polynomial.div(zerofier)
+                    let q = fast_coset_divide(
+                        self.omicron,
+                        self.omicron_domain_length,
+                        self.field.generator(),
+                        boundary_polynomial,
+                        zerofier,
+                    );
+                    Ok::<_, String>(q)
                 })
                 .collect::<Result<Vec<_>, _>>()?
         };
@@ -336,7 +369,13 @@ impl<'a> Stark<'a> {
             (0..self.num_registers)
                 .map(|s| {
                     // SAFETY: [s] safe because boundary_quotients also size of self.num_registers
-                    let codeword = boundary_quotients[s].evaluate_domain(&fri_domain);
+                    // let codeword = boundary_quotients[s].evaluate_domain(&fri_domain);
+                    let codeword = fast_coset_evaluate(
+                        self.fri.omega,
+                        self.fri.domain_length as u128,
+                        self.field.generator(),
+                        boundary_quotients[s].clone(),
+                    );
 
                     let root = MerkleRoot::commit(&codeword);
                     proof_stream.push(StarkProofStreamEnum::Root(root));
@@ -355,7 +394,7 @@ impl<'a> Stark<'a> {
             point.extend(trace_polynomials.clone());
             point.extend(
                 trace_polynomials
-                    .iter()
+                    .into_iter()
                     .map(|tp| tp.scale(self.omicron))
             );
 
@@ -366,14 +405,24 @@ impl<'a> Stark<'a> {
                     let transition_polynomial = a.evaluate_symbolic(&point);
 
                     // divide out zerofier
-                    transition_polynomial.div(self.transition_zerofier())
+                    // transition_polynomial.div(self.transition_zerofier())
+                    let q = fast_coset_divide(
+                        self.omicron,
+                        self.omicron_domain_length,
+                        self.field.generator(),
+                        transition_polynomial,
+                        self.transition_zerofier(),
+                    );
+                    Ok::<_, String>(q)
                 })
                 .collect::<Result<Vec<_>, _>>()?
         };
 
         // commit to randomizer polynomial
+        let transition_constraints_degree = self.max_degree(&transition_constraints);
+
         let randomizer_polynomial = Polynomial::new(
-            (0..self.max_degree(&transition_constraints) + 1)
+            (0..(transition_constraints_degree + 1))
                 .map(|_| {
                     let mut bytes = vec![0; 17]; // todo: shouldn't 17 be self.num_colinearity_tests?
                     thread_rng.fill_bytes(&mut bytes);
@@ -381,7 +430,14 @@ impl<'a> Stark<'a> {
                 })
                 .collect()
         );
-        let randomizer_codeword = randomizer_polynomial.evaluate_domain(&fri_domain);
+
+        // let randomizer_codeword = randomizer_polynomial.evaluate_domain(&fri_domain);
+        let randomizer_codeword = fast_coset_evaluate(
+            self.fri.omega,
+            self.fri.domain_length as u128,
+            self.field.generator(),
+            randomizer_polynomial.clone(),
+        );
         {
             let randomizer_root = MerkleRoot::commit(&randomizer_codeword);
             proof_stream.push(StarkProofStreamEnum::Root(randomizer_root));
@@ -412,24 +468,30 @@ impl<'a> Stark<'a> {
             let mut terms = Vec::with_capacity(weights.len());
             terms.push(randomizer_polynomial);
 
-            let transition_constraints_degree = self.max_degree(&transition_constraints);
-
             let transition_quotient_degree_bounds = self.transition_quotient_degree_bounds(&transition_constraints);
             for (i, tq) in transition_quotients.iter().enumerate() {
                 terms.push(tq.clone());
 
                 // SAFETY: [i] safe because it's the same size as `transition_quotients`
                 let shift = transition_constraints_degree - transition_quotient_degree_bounds[i];
-                terms.push((x.clone() ^ shift) * tq.clone());
+
+                // let t = (x.clone() ^ shift) * tq.clone();
+                let t = fast_multiply(self.omicron, self.omicron_domain_length, x.clone() ^ shift, tq.clone());
+
+                terms.push(t);
             }
 
             let boundary_quotient_degree_bounds = self.boundary_quotient_degree_bounds(trace.len(), &boundary);
-            for (i, bq) in boundary_quotients.iter().enumerate() {
+            for (i, bq) in boundary_quotients.into_iter().enumerate() {
                 terms.push(bq.clone());
 
                 // SAFETY: [i] safe because it's the same size as `boundary_quotients`
                 let shift = transition_constraints_degree - boundary_quotient_degree_bounds[i] as u128;
-                terms.push((x.clone() ^ shift) * bq.clone());
+
+                // let t = (x.clone() ^ shift) * bq.clone();
+                let t = fast_multiply(self.omicron, self.omicron_domain_length, x.clone() ^ shift, bq);
+
+                terms.push(t);
             }
             terms
         };
@@ -447,7 +509,13 @@ impl<'a> Stark<'a> {
                 .unwrap(); // SAFETY: terms length is at least 1
 
             // compute matching codeword
-            let combined_codeword = combination.evaluate_domain(&fri_domain);
+            // let combined_codeword = combination.evaluate_domain(&fri_domain);
+            let combined_codeword = fast_coset_evaluate(
+                self.fri.omega,
+                self.fri.domain_length as u128,
+                self.field.generator(),
+                combination,
+            );
 
             // prove low degree of combination polynomial
             let indices = self.fri.prove(&combined_codeword, &mut proof_stream);
@@ -612,9 +680,9 @@ impl<'a> Stark<'a> {
             .enumerate()
             .try_for_each(|(index_i, index_current)| {
                 // get trace values by applying correction to boundary quotient values (which are leafs)
-                let domain_index_current = self.fri.generator * (self.fri.omega ^ index_current);
+                let domain_index_current = self.fri.offset * (self.fri.omega ^ index_current);
                 let index_next = (index_current + self.expansion_factor) % self.fri.domain_length;
-                let domain_index_next = self.fri.generator * (self.fri.omega ^ index_next);
+                let domain_index_next = self.fri.offset * (self.fri.omega ^ index_next);
 
                 let (
                     trace_current,
@@ -768,7 +836,7 @@ mod tests {
 
             // prove
             trace = rp.trace(input_element);
-            air = rp.transition_constraints(stark.omicron);
+            air = rp.transition_constraints(stark.omicron, stark.omicron_domain_length);
             boundary = rp.boundary_constraints(output_element);
 
             let proof = stark.prove(trace.clone(), &air, &boundary, IndependentProofStream::new());

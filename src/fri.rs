@@ -1,5 +1,6 @@
 use crate::crypto::blake2b512::blake2b512;
 use crate::crypto::shake256::PROOF_BYTES;
+use crate::fft::ntt::{intt, ntt};
 use crate::field::field::Field;
 use crate::field::field_element::FieldElement;
 use crate::field::polynomial::Polynomial;
@@ -11,7 +12,7 @@ use crate::utils::bytes::Bytes;
 
 pub struct FRI<'a> {
   pub(crate) omega: FieldElement<'a>,
-  pub(crate) generator: FieldElement<'a>,
+  pub(crate) offset: FieldElement<'a>,
   field: &'a Field,
   pub(crate) domain_length: usize,
   expansion_factor: usize,
@@ -20,15 +21,15 @@ pub struct FRI<'a> {
 
 impl<'a> FRI<'a> {
   pub fn new (
-    generator: FieldElement<'a>,
+    offset: FieldElement<'a>,
     omega: FieldElement<'a>,
     domain_length: usize,
     expansion_factor: usize,
     num_colinearity_tests: usize,
   ) -> Self {
     Self {
+      offset,
       omega,
-      generator,
       field: omega.field,
       domain_length,
       expansion_factor,
@@ -51,7 +52,7 @@ impl<'a> FRI<'a> {
   pub fn evaluate_domain(&self) -> Vec<FieldElement<'a>> {
     (0..self.domain_length)
       .map(|i| {
-        self.generator * (self.omega.clone() ^ i)
+        self.offset * (self.omega.clone() ^ i)
       })
       .collect()
   }
@@ -119,7 +120,7 @@ impl<'a> FRI<'a> {
     let one = self.field.one();
     let two_inv = FieldElement::new(self.field, 2).inverse();
     let mut omega = self.omega;
-    let mut offset = self.generator;
+    let mut offset = self.offset;
 
     let num_rounds = self.num_rounds();
 
@@ -127,6 +128,10 @@ impl<'a> FRI<'a> {
     let mut codeword = codeword.to_vec();
 
     for r in 0..num_rounds {
+      let n = codeword.len();
+
+      assert_eq!(omega ^ (n - 1), omega.inverse(), "error in commit: omega does not have the right order!");
+
       // compute and send Merkle root
       let root = MerkleRoot::commit(&codeword);
       proof_stream.push(StarkProofStreamEnum::Root(root));
@@ -143,7 +148,7 @@ impl<'a> FRI<'a> {
       codewords.push(codeword.clone());
 
       // split and fold
-      let codeword_half_len = codeword.len() / 2;
+      let codeword_half_len = n / 2;
       codeword = (0..codeword_half_len)
         .map(|i| {
           let alpha_by_offset = alpha / (offset * (omega ^ i));
@@ -248,7 +253,7 @@ impl<'a> FRI<'a> {
     polynomial_values: &mut Vec<(usize, FieldElement<'a>)>,
   ) -> Result<(), String> {
     let mut omega = self.omega;
-    let mut offset = self.generator;
+    let mut offset = self.offset;
 
     let num_rounds = self.num_rounds();
 
@@ -257,7 +262,7 @@ impl<'a> FRI<'a> {
 
     for r in 0..num_rounds {
       let root = proof_stream.pull()
-          .expect(&format!("expected {r} elements"))
+          .expect(&format!("expected {} elements", r+1))
           .expect_root();
 
       roots.push(root);
@@ -265,7 +270,7 @@ impl<'a> FRI<'a> {
     }
 
     let last_codeword = proof_stream.pull()
-        .expect(&format!("expected {} elements", num_rounds-1))
+        .expect(&format!("expected {} elements", num_rounds+1))
         .expect_codeword();
 
     if &MerkleRoot::commit(&last_codeword) != roots.last().unwrap() {
@@ -285,14 +290,13 @@ impl<'a> FRI<'a> {
       return Err("omega does not have the right order".to_string());
     }
 
-    let last_domain = (0..last_codeword.len())
-      .map(|i| last_offset * (last_omega ^ i))
-      .collect::<Vec<_>>();
-    let poly = Polynomial::interpolate_domain(&last_domain, &last_codeword);
-
-    if poly.evaluate_domain(&last_domain) != last_codeword {
-      return Err("re-evaluated codeword does not match original".to_string());
-    }
+    // let last_domain = (0..last_codeword.len())
+    //   .map(|i| last_offset * (last_omega ^ i))
+    //   .collect::<Vec<_>>();
+    // let poly = Polynomial::interpolate_domain(&last_domain, &last_codeword);
+    let poly = Polynomial::new(
+      intt(last_omega, last_codeword.clone()),
+    ).scale(last_offset.inverse());
 
     match poly.degree() {
       None => {
@@ -301,11 +305,25 @@ impl<'a> FRI<'a> {
       Some(poly_degree) => {
         if poly_degree > degree {
           return Err(format!(
-            "last codeword does not correspond to polynomial of low enough degree (it is {} but should be {})",
+            "last codeword does not correspond to polynomial of low enough degree (it is {} but should be <= {})",
             poly_degree,
             degree,
           ));
         }
+      }
+    }
+
+    {
+      // let reeval = poly.evaluate_domain(&last_domain);
+      let reeval = ntt(
+        last_omega,
+        poly
+            .clone()
+            .scale(last_offset)
+            .coefficients
+      );
+      if reeval != last_codeword {
+        return Err("re-evaluated codeword does not match original".to_string());
       }
     }
 

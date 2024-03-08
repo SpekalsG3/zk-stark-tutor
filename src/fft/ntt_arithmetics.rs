@@ -4,7 +4,7 @@ use crate::field::polynomial::Polynomial;
 
 pub fn fast_multiply<'a>(
     root: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     lhs: Polynomial<'a>,
     rhs: Polynomial<'a>,
 ) -> Polynomial<'a> {
@@ -31,24 +31,25 @@ pub fn fast_multiply<'a>(
     let mut root = root;
     let mut order = root_order;
     // SAFETY: checked if zero before
-    let degree = lhs.degree().unwrap() + rhs.degree().unwrap();
+    let degree = lhs.degree().unwrap() as u128 + rhs.degree().unwrap() as u128;
+    let result_degree = (degree + 1) as usize;
 
     // for whatever reason `degree * 2 < order` doesnt work
     while degree < order / 2 {
-        root = root ^ 2_usize;
-        order = order / 2_usize;
+        root = root ^ 2_u128;
+        order = order / 2_u128;
     }
 
     let inner = |poly: Polynomial<'a>| -> Vec<FieldElement<'a>> {
         let mut poly = poly.coefficients;
-        poly.extend((poly.len()..order).map(|_| field.zero()));
+        poly.extend((poly.len()..order as usize).map(|_| field.zero()));
         ntt(root, poly)
     };
 
     let lhs = inner(lhs);
     let rhs = inner(rhs);
 
-    let hadamard_product = (0..order)
+    let hadamard_product = (0..order as usize)
         .map(|i| {
             // SAFETY: padded up to order elements
             lhs[i] * rhs[i]
@@ -56,15 +57,15 @@ pub fn fast_multiply<'a>(
         .collect();
 
     let mut coeffs = intt(root, hadamard_product);
-    if degree + 1 < coeffs.len() {
-        coeffs.drain((degree + 1)..);
+    if result_degree < coeffs.len() {
+        coeffs.drain(result_degree..);
     }
     Polynomial::new(coeffs)
 }
 
 pub fn fast_zerofier<'a>(
     root: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     domain: &[FieldElement<'a>],
 ) -> Polynomial<'a> {
     assert_eq!(
@@ -84,7 +85,7 @@ pub fn fast_zerofier<'a>(
 
     fn inner<'i> (
         root: FieldElement<'i>,
-        root_order: usize,
+        root_order: u128,
         domain: &[FieldElement<'i>],
     ) -> Polynomial<'i> {
         if domain.len() == 0 {
@@ -108,7 +109,7 @@ pub fn fast_zerofier<'a>(
 
 pub fn fast_evaluate_domain<'a>(
     root: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     polynomial: Polynomial<'a>,
     domain: &[FieldElement<'a>],
 ) -> Vec<FieldElement<'a>> {
@@ -129,7 +130,7 @@ pub fn fast_evaluate_domain<'a>(
 
     fn inner<'i>(
         root: FieldElement<'i>,
-        root_order: usize,
+        root_order: u128,
         polynomial: Polynomial<'i>,
         domain: &[FieldElement<'i>],
     ) -> Vec<FieldElement<'i>> {
@@ -159,18 +160,18 @@ pub fn fast_evaluate_domain<'a>(
 
 pub fn fast_coset_evaluate<'a>(
     generator: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     offset: FieldElement<'a>,
     polynomial: Polynomial<'a>,
 ) -> Vec<FieldElement<'a>> {
     let mut coeffs = polynomial.scale(offset).coefficients;
-    coeffs.extend(vec![generator.field.zero(); root_order - coeffs.len()]);
+    coeffs.extend(vec![generator.field.zero(); root_order as usize - coeffs.len()]);
     ntt(generator, coeffs)
 }
 
 pub fn fast_interpolate_domain<'a>(
     root: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     domain: &[FieldElement<'a>],
     values: &[FieldElement<'a>],
 ) -> Polynomial<'a> {
@@ -192,7 +193,7 @@ pub fn fast_interpolate_domain<'a>(
 
     fn inner<'i>(
         root: FieldElement<'i>,
-        root_order: usize,
+        root_order: u128,
         domain: &[FieldElement<'i>],
         values: &[FieldElement<'i>],
     ) -> Polynomial<'i> {
@@ -237,7 +238,7 @@ pub fn fast_interpolate_domain<'a>(
 
 pub fn fast_coset_divide<'a>(
     root: FieldElement<'a>,
-    root_order: usize,
+    root_order: u128,
     offset: FieldElement<'a>,
     lhs: Polynomial<'a>,
     rhs: Polynomial<'a>,
@@ -263,27 +264,27 @@ pub fn fast_coset_divide<'a>(
     }
 
     // SAFETY: checked if zero before
-    let lhs_degree = lhs.degree().unwrap();
-    let rhs_degree = rhs.degree().unwrap();
+    let lhs_degree = lhs.degree().unwrap() as u128;
+    let rhs_degree = rhs.degree().unwrap() as u128;
     assert!(lhs_degree >= rhs_degree, "cannot divide by polynomial of larger degree");
 
     let field = root.field;
     let mut root = root;
     let mut order = root_order;
     let degree = lhs_degree.max(rhs_degree);
-    let result_degree = lhs_degree - rhs_degree + 1;
+    let result_degree = (lhs_degree - rhs_degree + 1) as usize;
 
     // for whatever reason `degree * 2 < order` doesnt work
     while degree < order / 2 {
-        root = root ^ 2_usize;
-        order = order / 2_usize;
+        root = root ^ 2_u128;
+        order = order / 2_u128;
     }
 
     let inner = |poly: Polynomial<'a>| {
         let poly = poly.scale(offset);
         let mut poly = poly.coefficients;
         poly.extend(
-            (poly.len()..order)
+            (poly.len()..order as usize)
                 .map(|_| field.zero()),
         );
         ntt(root, poly)
@@ -292,7 +293,7 @@ pub fn fast_coset_divide<'a>(
     let lhs = inner(lhs);
     let rhs = inner(rhs);
 
-    let quotient = (0..order)
+    let quotient = (0..order as usize)
         .map(|i| {
             // SAFETY: padded up to order elements
             lhs[i] / rhs[i]
@@ -321,7 +322,7 @@ mod tests {
     fn rand_domain<'a>(
         thread_rng: &mut ThreadRng,
         field: &'a Field,
-        size: usize,
+        size: u128,
     ) -> Vec<FieldElement<'a>> {
         (0..size)
             .map(|_| {
@@ -335,14 +336,14 @@ mod tests {
     fn rand_poly<'a>(
         thread_rng: &mut ThreadRng,
         field: &'a Field,
-        max_degree: usize,
+        max_degree: u128,
     ) -> Polynomial<'a> {
         let degree = {
             let mut degree = 0;
             while degree == 0 {
                 let mut bytes = [0; 1];
                 thread_rng.fill_bytes(&mut bytes);
-                degree = u8::from_be_bytes(bytes) as usize % max_degree
+                degree = u8::from_be_bytes(bytes) as u128 % max_degree
             }
             degree
         };
@@ -354,8 +355,8 @@ mod tests {
     #[test]
     fn multiply () {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let mut thread_rng = thread_rng();
 
@@ -376,8 +377,8 @@ mod tests {
     #[test]
     fn zerofier () {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let mut thread_rng = thread_rng();
 
@@ -404,8 +405,8 @@ mod tests {
     #[test]
     fn evaluate_domain() {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let mut thread_rng = thread_rng();
 
@@ -433,8 +434,8 @@ mod tests {
     #[test]
     fn interpolate() {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let mut thread_rng = thread_rng();
 
@@ -471,8 +472,8 @@ mod tests {
     #[test]
     fn coset_evaluate () {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let offset = FieldElement::new(&field, 5);
         let domain = (0..n)
@@ -493,8 +494,8 @@ mod tests {
     #[test]
     fn coset_divide() {
         let field = Field::new(FIELD_PRIME);
-        let n: usize = 1 << 6;
-        let primitive_root = field.primitive_nth_root(n as u128);
+        let n = 1 << 6;
+        let primitive_root = field.primitive_nth_root(n);
 
         let mut thread_rng = thread_rng();
 

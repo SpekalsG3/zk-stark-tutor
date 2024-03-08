@@ -25,13 +25,12 @@ impl Debug for Polynomial<'_> {
 
 impl<'a> Polynomial<'a> {
   pub fn new (coeffs: Vec<FieldElement<'a>>) -> Self {
-    if coeffs.len() > 2 {
-      let first = coeffs.first().unwrap();
-      coeffs
-        .iter()
-        .skip(1)
-        .for_each(|c| assert_eq!(first.field, c.field, "coefficients must be in the same field"))
-    }
+    // if coeffs.len() > 2 {
+    //   let mut iter = coeffs.iter();
+    //   let first = iter.next().unwrap();
+    //   iter
+    //     .for_each(|c| assert_eq!(first.field, c.field, "coefficients must be in the same field"))
+    // }
 
     Polynomial {
       coefficients: coeffs,
@@ -77,7 +76,7 @@ impl<'a> Polynomial<'a> {
   pub fn evaluate (&self, point: &FieldElement<'a>) -> FieldElement<'a> {
     if self.coefficients.len() > 0 {
       assert_eq!(
-        self.coefficients.first().unwrap().field,
+        self.coefficients[0].field,
         point.field,
         "cannot evaluate point in a different field",
       );
@@ -107,18 +106,15 @@ impl<'a> Polynomial<'a> {
       .collect()
   }
 
-  pub fn scale (&self, factor: FieldElement) -> Polynomial<'a> {
+  pub fn scale (self, factor: FieldElement<'a>) -> Polynomial<'a> {
     Polynomial::new(
       self
         .coefficients
-        .iter()
+        .into_iter()
         .enumerate()
         .map(|(i, coef)| {
           let pow = factor ^ i;
-          FieldElement {
-            field: coef.field,
-            value: coef.field.mul_mod(pow.value, coef.value),
-          }
+          pow * coef
         })
         .collect()
     )
