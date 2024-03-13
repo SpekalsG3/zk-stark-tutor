@@ -1,10 +1,8 @@
-use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, BitXor, Div, Mul, Neg, Sub};
 use crate::field::field::Field;
 use crate::utils::bit_iter::BitIter;
 use crate::utils::bytes::Bytes;
-use crate::utils::xgcd::u_xgcd;
 
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct FieldElement<'a> {
@@ -86,20 +84,7 @@ impl<'a> Div for FieldElement<'a> {
   fn div (self, rhs: Self) -> Self::Output {
     assert_ne!(rhs.value, 0, "divide by zero");
 
-    // assertion for local usage, behaviour that I don't understand
-    let (a, _, _) = u_xgcd(rhs.value, self.field.order);
-
-    // to prevent loosing data during cast
-    let value: u128 = match a.cmp(&0) {
-      Ordering::Greater => self.field.mul_mod(self.value, a as u128),
-      Ordering::Less => self.field.mul_mod(self.value, self.field.neg_mod(a.neg() as u128)),
-      Ordering::Equal => 0,
-    };
-
-    FieldElement {
-      field: self.field,
-      value,
-    }
+    self * rhs.inverse()
   }
 }
 

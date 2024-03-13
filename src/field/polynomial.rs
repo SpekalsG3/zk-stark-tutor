@@ -345,9 +345,9 @@ impl<'a> BitXor<u128> for Polynomial<'a> {
 
     let iter: BitIter<u128> = exponent.into();
     for i in (0..iter.count()).rev() {
-      acc = acc.clone().mul(acc);
+      acc = acc.clone() * acc;
       if (1 << i) & exponent != 0 {
-        acc = acc.mul(self.clone());
+        acc = acc * self.clone();
       }
     }
 

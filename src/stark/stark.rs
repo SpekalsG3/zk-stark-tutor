@@ -398,11 +398,12 @@ impl<'a> Stark<'a> {
                     .map(|tp| tp.scale(self.omicron))
             );
 
+            let transition_zerofier = self.transition_zerofier();
             transition_constraints
                 .iter()
-                .map(|a| {
+                .map(|tc| {
                     // symbolically evaluate transition constraints to receive transition_polynomial
-                    let transition_polynomial = a.evaluate_symbolic(&point);
+                    let transition_polynomial = tc.evaluate_symbolic(&point);
 
                     // divide out zerofier
                     // transition_polynomial.div(self.transition_zerofier())
@@ -411,7 +412,7 @@ impl<'a> Stark<'a> {
                         self.omicron_domain_length,
                         self.field.generator(),
                         transition_polynomial,
-                        self.transition_zerofier(),
+                        transition_zerofier.clone(),
                     );
                     Ok::<_, String>(q)
                 })
