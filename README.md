@@ -5,7 +5,8 @@ STARK protocol.
 
 ## Credits
 
-Foundation of this code relies on [great tutorial by aszepieniec](https://aszepieniec.github.io/stark-anatomy/).
+[Great tutorial by aszepieniec](https://aszepieniec.github.io/stark-anatomy/)
+explains the math behind this proof system.
 
 ## TODO's for Production Ready
 
